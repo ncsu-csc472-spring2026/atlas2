@@ -1,0 +1,3 @@
+[submodule "atlas-crawler"]
+	path = atlas-crawler
+	url = git@github.com:ncsu-csc472-spring2026/atlas-crawler.git
