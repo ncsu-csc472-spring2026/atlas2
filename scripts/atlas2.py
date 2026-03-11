@@ -50,7 +50,7 @@ def main():
 
     # ── Step 1: Run theHarvester, capturing both stdout + stderr ──────────────
     print("\n[*] Running theHarvester...")
-    harvester_cmd = [harvester_bin, "-d", root_domain, "-b", "all"]
+    harvester_cmd = [harvester_bin, "-d", root_domain, "-r", "-s", "-b", "all"]
 
     harvester_result = subprocess.run(
         harvester_cmd,
