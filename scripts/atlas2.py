@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""atlas2.py
+"""
+atlas2.py
 
 Prompt for PSU name and root domain, run theHarvester, pipe output to harvesthelper,
 and save harvesthelper's output to harvesthelper.txt
@@ -8,14 +9,53 @@ import re
 import shutil
 import subprocess
 import sys
+import argparse
+import json
+import datatime as dt # For timestamps (see strftime())
 
-DOMAIN_RE = re.compile(r"^(?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?\.)+[A-Za-z]{2,}$")
+DOMAIN_RE = re.compile(r"^(?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?\.)+[A-Za-z]{2,}$") # Regex object for matching domains at the start of lines (or strings)
+IP_RE = re.compile(r"^((25[0-5]|(2[0-4]|1\d|[1-9]|)\d)\.?\b){4}$") # Regex object for matching IPs at the start of lines
+
+# Argument parser construction (global so all methods can use arguments)
+parser = argparse.ArgumentParser()
+parser.add_argument('psu_id', help='ID of the PSU to scan (ex. 410 OR 31B)', nargs='?', default='')
+parser.add_argument('psu_domain', help='Root domain of the given PSU (ex. pitt.k12.nc.us OR daretolearn.org)', nargs='?', default='')
+parser.add_argument('-n', '--name', help='Optional name of the PSU (ex. \'Pitt County Schools\')')
+parser.add_argument('-i', '--interactive', help='Interactive mode: program will prompt you to input PSU ID and Domain', action='store_true')
+# Parse args into the 'args' variable. Arguments are accessible by using args.[argument name]
+args = parser.parse_args()
 
 
+# Asset Class (object)
+class Asset:
+    def __init__(self, ip):
+        self.ip = ip                    # Asset IP address
+        self.in_block = False           # Whether or not the IP is in the MCNC block for the supplied PSU (TODO: Implement check for this)
+        self.ping_status = 'DOWN'       # Is this asset responding to pings? Default = DOWN
+        self.asn = ''                   # ASN this IP belongs to
+        self.domains = {}               # Set of domains associated with this IP (NO DUPLICATES ALLOWED)
+        self.
+
+
+# PSU Class (Object), instantiated after all assets 
+class PSU:
+    def __init__(self, name, id, root_domain, asset_count, assets)
+        self.name = name                        # PSU name
+        self.id = id                            # PSU ID
+        self.root_domain = root_domain          # PSU root domain
+        self.asset_count = asset_count          # Number of assets found for this PSU
+        self.assets = assets                    # List of Asset objects found for this PSU
+
+
+'''
+Returns true if the passed string is a domain, otherwise false
+'''
 def is_valid_domain(domain: str) -> bool:
     return bool(DOMAIN_RE.match(domain))
 
-
+'''
+If tool is in interactive mode (-i or --interactive), get PSU ID and Domain from the user's stdin
+'''
 def get_inputs():
     try:
         psu = input("Enter PSU ID (e.g. 410): ").strip()
@@ -33,7 +73,9 @@ def get_inputs():
         print("\nInput cancelled.", file=sys.stderr)
         sys.exit(1)
 
-
+'''
+Locates a tool with the passed name on the host system, program exits if tool is not found in PATH
+'''
 def find_tool(name: str) -> str:
     path = shutil.which(name)
     if not path:
@@ -41,10 +83,28 @@ def find_tool(name: str) -> str:
         sys.exit(1)
     return path
 
+'''
+Returns a string of all IPs found in the harvester_output (or any passed string)
+'''
+def find_harvester_ips(harvester_output: str) -> str:
+    return IP_RE.findall(harvester_output)
 
+'''
+Main function, starts program execution
+'''
 def main():
-    psu, root_domain = get_inputs()
+    # If interactive mode, ask user for inputs
+    if args.interactive:
+        psu, root_domain = get_inputs()
+    else: # otherwise fill in variable from args
+        psu = args.psu_id
+        root_domain = args.psu_domain
 
+        # Exit on error (non-interactive mode and empty arguments)
+        if not psu or not root_domain or not is_valid_domain(root_domain):
+            print("[!] Invalid PSU ID or Domain", file=sys.stderr)
+            sys.exit(1)
+    
     harvester_bin = find_tool("theHarvester")
     harvesthelper_bin = find_tool("harvesthelper")
 
@@ -63,7 +123,7 @@ def main():
 
     if not harvester_output.strip():
         print("[!] theHarvester produced no output", file=sys.stderr)
-        sys.exit(1)
+        sys.exit(2)
 
     # Save raw output for reference / debugging
     with open("harvester_output.txt", "wb") as f:
@@ -88,7 +148,7 @@ def main():
     if harvesthelper_result.returncode != 0:
         print(f"[!] harvesthelper failed (exit {harvesthelper_result.returncode})", file=sys.stderr)
         print(harvesthelper_result.stderr.decode(errors="replace"), file=sys.stderr)
-        sys.exit(1)
+        sys.exit(3)
 
     print("[+] harvesthelper finished")
 
