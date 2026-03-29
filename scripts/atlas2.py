@@ -39,6 +39,12 @@ class Asset:
         self.timestamp = ''             # Timestamp of when this Asset was last found
         self.comments = ''              # Additional comments about this Asset
 
+    # Equality check between two Asset object, if the IPs are the same, the Assets are the same (usable with ==)
+    def __eq__(self, other):
+        if isInstance(other, Asset):
+            return self.ip == other.ip
+        return NotImplemented
+
 
 # PSU Class (Object), instantiated after all assets for the particular PSU are found
 class PSU:
@@ -133,7 +139,7 @@ def asn(ip: str) -> str:
         if index == -1:
             index = line.find('Organisation')
 
-        # If not found, continue to next line, otherwise break out of 
+        # If not found, continue to next line, otherwise break out of for loop
         if index == -1:
             continue
         else:
@@ -192,9 +198,10 @@ def main():
 
 
     # ── Step 2: Parse theHarvester output into JSON objects ─────────
+    print("\n[*] Starting Harvester Output Parsing")
 
-    print(harvester_output) # DEBUG
-    print(find_harvester_ips(harvester_output)) ## DEBUG
+    # print(harvester_output) # DEBUG
+    # print(find_harvester_ips(harvester_output)) ## DEBUG
 
     # Iterate over all IPs found by theHarvester
     harvester_assets = []
@@ -202,10 +209,14 @@ def main():
         asset = Asset(ip)
         asset.ping_status = ping_status(ip)
         asset.asn = asn(ip)
-        asset_string = json.dumps(asset, default=lambda o: o.__dict__, indent=4) # DEBUG
-        print(asset_string) # DEBUG
+        asset_string = json.dumps(asset, default=lambda o: o.__dict__, indent=4) # DEBUG, JSONify the Asset object
+        print(asset_string) # DEBUG, print JSON to stdout
         # TODO: Add functions to pupulate the rest of the asset object fields!
         harvester_assets.append(asset) # Last thing in the for loop will be adding the asset object to the list
 
+    print(f"\n[+] Finished Harvester Parsing, got {len(harvester_assets)} assets!")
+
+    
 if __name__ == "__main__":
     main()
+
