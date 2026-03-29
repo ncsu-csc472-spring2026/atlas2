@@ -166,7 +166,6 @@ def main():
 
     # Find all necessary utilities in PATH
     harvester_bin = find_tool("theHarvester")
-    harvesthelper_bin = find_tool("harvesthelper")
 
     # ── Step 1: Run theHarvester, capturing both stdout + stderr ──────────────
     print("\n[*] Running theHarvester...")
@@ -185,13 +184,6 @@ def main():
         print("[!] theHarvester produced no output", file=sys.stderr)
         sys.exit(2)
 
-
-    '''
-    # Save raw output for reference / debugging
-    with open("harvester_output.txt", "wb") as f:
-        f.write(harvester_output)
-    '''
-
     if harvester_result.returncode != 0:
         print(f"[!] theHarvester exited with code {harvester_result.returncode}", file=sys.stderr)
         # Don't hard-exit — theHarvester sometimes returns non-zero even on partial success
@@ -203,7 +195,7 @@ def main():
 
     print(harvester_output) # DEBUG
     print(find_harvester_ips(harvester_output)) ## DEBUG
-    
+
     # Iterate over all IPs found by theHarvester
     harvester_assets = []
     for ip in find_harvester_ips(harvester_output):
