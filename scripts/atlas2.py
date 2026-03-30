@@ -167,13 +167,15 @@ e.g. [ ('www.example.com', ['1.2.3.4', '2.3.4.5']), ('test.school.com', ['8.8.8.
 '''
 def get_harvester_domains(harvester_output: str) -> list:
     result = [] # List of tuples 
+    # For each line in the harvester_output file passed...
     for line in harvester_output.splitlines():
         ips = []
         d = ''
+        # ... check if the line starts with a domain string, and if so, split line into the domain string and the comma-separated list of IPs
         if DOMAIN_START_RE.match(line): # If the line contains a domain at the start of the string
             d, s, ip_commas = line.partition(':')
-            ips = ip_commas.split(',')
-            result.append((d, ips))
+            ips = ip_commas.split(',') # Split comma-separated list into an actual List object
+            result.append((d, ips)) # Add finished tuple to the results list
         elif line == "[*] Searching Shodan.": # If we get to the line where theHarvester started searching Shodan, we can return
             return result
 
@@ -185,7 +187,9 @@ Return list of domains associated with the passed IP and return List from get_ha
 '''
 def get_domains_from_ip(domain_list: list, ip: str) -> list:
     domains = []
+    # For each (domain, [ips]) tuple in domain_list...
     for pair in domain_list:
+        # ... if IP in the tuple, add the domain of the tuple to the domains list to return
         if ip in pair[1]:
             domains.append(pair[0])
 
@@ -214,8 +218,11 @@ def main():
 
     # ── Step 1: Run theHarvester, capturing both stdout + stderr ──────────────
     print("\n[*] Running theHarvester...")
+
+    # theHarvester command in List for for subprocess.run()
     harvester_cmd = [harvester_bin, "-d", root_domain, "-r", "-s", "-b", "all"]
 
+    # Execute theHarvester
     harvester_result = subprocess.run(
         harvester_cmd,
         stdout=subprocess.PIPE,
@@ -225,10 +232,12 @@ def main():
     # Combine stdout + stderr so nothing is lost and convert to string
     harvester_output = (harvester_result.stdout + harvester_result.stderr).decode('UTF-8')
 
+    # If theHarvester output is empty, something has gone horribly wrong, so exit with error
     if not harvester_output.strip():
         print("[!] theHarvester produced no output", file=sys.stderr)
         sys.exit(2)
 
+    # If theHarvester return code != 0, print an error but don't exit
     if harvester_result.returncode != 0:
         print(f"[!] theHarvester exited with code {harvester_result.returncode}", file=sys.stderr)
         # Don't hard-exit — theHarvester sometimes returns non-zero even on partial success
@@ -246,24 +255,27 @@ def main():
     harvester_assets = []
     timestamp_string = timestamp()
     harvester_domains = get_harvester_domains(harvester_output)
-    print(harvester_domains) # DEBUG
+    # print(harvester_domains) # DEBUG
 
+    # Construct Asset objects for every IP found by theHarvester
     for ip in find_harvester_ips(harvester_output):
-        asset = Asset(ip)
-        asset.ping_status = ping_status(ip)
-        asset.asn = asn(ip)
-        asset.domains = get_domains_from_ip(harvester_domains, ip)
-        asset.source = 'theHarvester'
-        asset.timestamp = timestamp_string
-        harvester_assets.append(asset) # Last thing in the for loop will be adding the asset object to the list
+        asset = Asset(ip)                                               # Set IP
+        asset.ping_status = ping_status(ip)                             # Set Ping status
+        asset.asn = asn(ip)                                             # Set ASN
+        asset.domains = get_domains_from_ip(harvester_domains, ip)      # Set Domains List
+        asset.source = 'theHarvester'                                   # Set Source (theHarvester)
+        asset.timestamp = timestamp_string                              # Set Timestamp to timestamp calculated before the for loop
 
+        harvester_assets.append(asset)                                  # Append asset to harvester_assets, will combine later with crawler_assets to create unified list
+
+    # JSONify every Asset (DEBUG)
     for asset in harvester_assets:
         asset_string = json.dumps(asset, default=lambda o: o.__dict__, indent=4) # DEBUG, JSONify the Asset object
         print(asset_string) # DEBUG, print JSON to stdout
 
     print(f"\n[+] Finished Harvester Parsing, got {len(harvester_assets)} assets!")
 
-    
+
 if __name__ == "__main__":
     main()
 
