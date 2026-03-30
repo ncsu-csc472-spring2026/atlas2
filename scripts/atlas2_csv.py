@@ -8,11 +8,9 @@ def export_psu_as_csv(psu):
 
 '''
 Exports a list of assets to a csv file with the passed name
+If the asset list is empty, it will just print the header and no other rows, which is expected behavior
 '''
 def export_assets_as_csv(name: str, assets: list):
-    if not len(assets): # If there are no assets in the PSU...
-        return -1 # Error
-    
     # Open and use CSV file with passed name
     with open(name, 'w', newline='') as csvfile:
         # Define field (header) names manually (could do thsi automatically later if these change)
@@ -24,4 +22,6 @@ def export_assets_as_csv(name: str, assets: list):
         # Write each asset as a row to the file
         for asset in assets:
             assetwriter.writerow(asset.__dict__)
+
+    return 0 # Return normal exit code
 

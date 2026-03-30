@@ -192,7 +192,7 @@ def get_domains_from_ip(domain_list: list, ip: str) -> list:
     # For each (domain, [ips]) tuple in domain_list...
     for pair in domain_list:
         # ... if IP in the tuple, add the domain of the tuple to the domains list to return
-        if ip in pair[1]:
+        if ip in pair[1] and pair[0] not in domains: # Avoid duplicates as well
             domains.append(pair[0])
 
     return domains
