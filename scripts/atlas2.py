@@ -154,6 +154,13 @@ def asn(ip: str) -> str:
 
 
 '''
+Get the current timestamp in ISO 8601 format (YYYY-MM-DDTHH:MM:SS)
+'''
+def timestamp() -> str:
+    return dt.datetime.now().isoformat(timespec='seconds')
+
+
+'''
 Main function, starts program execution
 '''
 def main():
@@ -205,13 +212,17 @@ def main():
 
     # Iterate over all IPs found by theHarvester
     harvester_assets = []
+    timestamp = timestamp()
     for ip in find_harvester_ips(harvester_output):
         asset = Asset(ip)
         asset.ping_status = ping_status(ip)
         asset.asn = asn(ip)
+        # asset.domains = 
+        asset.source = 'theHarvester'
+        asset.timestamp = timestamp
+        # asset.comments = 
         asset_string = json.dumps(asset, default=lambda o: o.__dict__, indent=4) # DEBUG, JSONify the Asset object
         print(asset_string) # DEBUG, print JSON to stdout
-        # TODO: Add functions to pupulate the rest of the asset object fields!
         harvester_assets.append(asset) # Last thing in the for loop will be adding the asset object to the list
 
     print(f"\n[+] Finished Harvester Parsing, got {len(harvester_assets)} assets!")
