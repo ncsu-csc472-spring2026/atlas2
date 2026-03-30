@@ -13,7 +13,8 @@ import argparse         # For command-line argument parsing
 import json             # For JSON object export
 import datetime as dt   # For timestamps (see strftime())
 
-DOMAIN_RE = re.compile(r'^(?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?\.)+[A-Za-z]{2,}$') # Regex object for matching domains at the start of lines (or strings)
+DOMAIN_RE = re.compile(r'^(?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?\.)+[A-Za-z]{2,}$') # Regex object for matching domains that take up the entire line (or from user input)
+DOMAIN_START_RE = re.compile(r'^(?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?\.)+[A-Za-z]{2,}') # Regex object for matching domains at the start of lines (or strings)
 IP_RE = re.compile(r'^(?:(?:25[0-5]|(?:2[0-4]|1\d|[1-9]|)\d)\.?\b){4}$', re.M) # Regex object for matching IPs at the start of lines
 
 # Argument parser construction (global so all methods can use arguments)
@@ -34,7 +35,7 @@ class Asset:
         self.in_block = False           # Whether or not the IP is in the MCNC block for the supplied PSU (TODO: Implement check for this)
         self.ping_status = 'DOWN'       # Is this asset responding to pings? Default = DOWN
         self.asn = ''                   # ASN this IP belongs to
-        self.domains = {}               # Set of domains associated with this IP (NO DUPLICATES ALLOWED)
+        self.domains = []               # List of domains associated with this IP
         self.source = ''                # What tool was used to find this Asset
         self.timestamp = ''             # Timestamp of when this Asset was last found
         self.comments = ''              # Additional comments about this Asset
@@ -112,7 +113,7 @@ Returns UP or DOWN depending if the passes IP is responding to pings
 def ping_status(ip: str) -> str:
     print(f'[*] Pinging {ip}')
     command = ['ping', '-c', '1', '-W', '0.5', ip] # Ping once, timeout after 0.5 seconds
-    result = subprocess.run(command, capture_output=False, text=True)
+    result = subprocess.run(command, capture_output=True, text=True)
 
     if not result.returncode: # result will == 0 upon success
         return 'UP'
@@ -158,6 +159,37 @@ Get the current timestamp in ISO 8601 format (YYYY-MM-DDTHH:MM:SS)
 '''
 def timestamp() -> str:
     return dt.datetime.now().isoformat(timespec='seconds')
+
+
+'''
+Return list of tuples containing each unique Harvester domain and their corresponding list of IPs
+e.g. [ ('www.example.com', ['1.2.3.4', '2.3.4.5']), ('test.school.com', ['8.8.8.8']) ]
+'''
+def get_harvester_domains(harvester_output: str) -> list:
+    result = [] # List of tuples 
+    for line in harvester_output.splitlines():
+        ips = []
+        d = ''
+        if DOMAIN_START_RE.match(line): # If the line contains a domain at the start of the string
+            d, s, ip_commas = line.partition(':')
+            ips = ip_commas.split(',')
+            result.append((d, ips))
+        elif line == "[*] Searching Shodan.": # If we get to the line where theHarvester started searching Shodan, we can return
+            return result
+
+    return result
+
+
+'''
+Return list of domains associated with the passed IP and return List from get_harvester_domains()
+'''
+def get_domains_from_ip(domain_list: list, ip: str) -> list:
+    domains = []
+    for pair in domain_list:
+        if ip in pair[1]:
+            domains.append(pair[0])
+
+    return domains
 
 
 '''
@@ -213,17 +245,21 @@ def main():
     # Iterate over all IPs found by theHarvester
     harvester_assets = []
     timestamp_string = timestamp()
+    harvester_domains = get_harvester_domains(harvester_output)
+    print(harvester_domains) # DEBUG
+
     for ip in find_harvester_ips(harvester_output):
         asset = Asset(ip)
         asset.ping_status = ping_status(ip)
         asset.asn = asn(ip)
-        # asset.domains = 
+        asset.domains = get_domains_from_ip(harvester_domains, ip)
         asset.source = 'theHarvester'
         asset.timestamp = timestamp_string
-        # asset.comments = 
+        harvester_assets.append(asset) # Last thing in the for loop will be adding the asset object to the list
+
+    for asset in harvester_assets:
         asset_string = json.dumps(asset, default=lambda o: o.__dict__, indent=4) # DEBUG, JSONify the Asset object
         print(asset_string) # DEBUG, print JSON to stdout
-        harvester_assets.append(asset) # Last thing in the for loop will be adding the asset object to the list
 
     print(f"\n[+] Finished Harvester Parsing, got {len(harvester_assets)} assets!")
 
