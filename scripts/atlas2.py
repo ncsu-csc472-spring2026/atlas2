@@ -12,6 +12,7 @@ import sys
 import argparse         # For command-line argument parsing
 import json             # For JSON object export
 import datetime as dt   # For timestamps (see strftime())
+import atlas2_csv as csv # For CSV Exporting
 
 DOMAIN_RE = re.compile(r'^(?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?\.)+[A-Za-z]{2,}$') # Regex object for matching domains that take up the entire line (or from user input)
 DOMAIN_START_RE = re.compile(r'^(?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?\.)+[A-Za-z]{2,}') # Regex object for matching domains at the start of lines (or strings)
@@ -23,6 +24,7 @@ parser.add_argument('psu_id', help='ID of the PSU to scan (ex. 410 OR 31B)', nar
 parser.add_argument('psu_name', help='Optional name of the PSU (ex. \'Pitt County Schools\')', nargs='?', default = '')
 parser.add_argument('psu_domain', help='Root domain of the given PSU (ex. pitt.k12.nc.us OR daretolearn.org)', nargs='?', default='')
 parser.add_argument('-i', '--interactive', help='Interactive mode: program will prompt you to input PSU ID and Domain', action='store_true')
+parser.add_argument('-c', '--csv', help='Enables .csv exporting to "{psu_id}_{psu_name}.csv"', action='store_true')
 
 # Parse args into the 'args' variable. Arguments are accessible by using args.[argument name]
 args = parser.parse_args()
@@ -77,7 +79,7 @@ def get_inputs():
         name = input("Enter PSU Name (e.g. Pitt County Schools): ").strip()
         while not name:
             print("PSU Name cannot be empty.")
-            psu = input("Enter PSU Name (e.g. Pitt County Schools): ").strip()
+            name = input("Enter PSU Name (e.g. Pitt County Schools): ").strip().replace(' ', '_')
 
         root_domain = input("Enter root domain (e.g. gcsnc.com): ").strip()
         while not is_valid_domain(root_domain):
@@ -204,9 +206,9 @@ def main():
     if args.interactive:
         psu, name, root_domain = get_inputs()
     else: # otherwise fill in variable from args
-        psu = args.psu_id
-        name = args.psu_name
-        root_domain = args.psu_domain
+        psu = args.psu_id.strip()
+        name = args.psu_name.strip().replace(' ', '_')
+        root_domain = args.psu_domain.strip()
 
         # Exit on error (non-interactive mode and empty arguments)
         if not psu or not root_domain or not name or not is_valid_domain(root_domain):
@@ -275,6 +277,13 @@ def main():
 
     print(f"\n[+] Finished Harvester Parsing, got {len(harvester_assets)} assets!")
 
+
+    ### DATA EXPORTING DEBUG ###
+
+    # Create PSU object
+    psu_object = PSU(name, psu, root_domain, 123, harvester_assets)
+    csv.export_assets_as_csv(f'asset_list.csv', harvester_assets)
+    csv.export_psu_as_csv(psu_object)
 
 if __name__ == "__main__":
     main()
