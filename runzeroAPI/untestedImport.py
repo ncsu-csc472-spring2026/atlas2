@@ -4,7 +4,7 @@ import sys
 import json
 
 # Environmental variable for org token?
-RUNZERO_ORG_TOKEN = "replace_with_org_token"
+RUNZERO_ORG_TOKEN = "OTBE19B320FC165EB9DC991ED378AC"
 BASE_URL = "https://console.runzero.com/api/v1.0"
 SCAN_ID_FILE = "last_scan_id.txt"
 
