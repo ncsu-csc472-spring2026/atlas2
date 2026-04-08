@@ -5,40 +5,131 @@ atlas2.py
 Prompt for PSU name and root domain, run theHarvester, pipe output to harvesthelper,
 and save harvesthelper's output to harvesthelper.txt
 """
-import re               # Regex parser
+
+import re  # Regex parser
 import shutil
 import subprocess
 import sys
-import argparse         # For command-line argument parsing
-import json             # For JSON object export
-import datetime as dt   # For timestamps (see strftime())
+import argparse  # For command-line argument parsing
+import json  # For JSON object export
+import datetime as dt  # For timestamps (see strftime())
+import socket  # For DNS resolution
 
-DOMAIN_RE = re.compile(r'^(?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?\.)+[A-Za-z]{2,}$') # Regex object for matching domains that take up the entire line (or from user input)
-DOMAIN_START_RE = re.compile(r'^(?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?\.)+[A-Za-z]{2,}') # Regex object for matching domains at the start of lines (or strings)
-IP_RE = re.compile(r'^(?:(?:25[0-5]|(?:2[0-4]|1\d|[1-9]|)\d)\.?\b){4}$', re.M) # Regex object for matching IPs at the start of lines
 
-# Argument parser construction (global so all methods can use arguments)
+def crawl2ip(input_file):
+    url_re = re.compile(r"https?://[^\s/]+")
+    ip_re = re.compile(r"^(\d{1,3}\.){3}\d{1,3}$")
+
+    domains = []
+    with open(input_file) as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            match = url_re.match(line)
+            if match:
+                url = match.group(0)
+                domain = url.split("//")[1].split("/")[0]
+                domains.append(domain)
+
+    ip_to_domains = {}
+    for domain in domains:
+        try:
+            addr_info = socket.getaddrinfo(domain, None, socket.AF_INET)
+            for info in addr_info:
+                ip = info[4][0]
+                if ip_re.match(ip):
+                    if ip not in ip_to_domains:
+                        ip_to_domains[ip] = []
+                    ip_to_domains[ip].append(domain)
+        except (socket.gaierror, socket.herror):
+            pass
+
+    for ip in ip_to_domains:
+        ip_to_domains[ip] = list(set(ip_to_domains[ip]))
+
+    return sorted(ip_to_domains.keys()), ip_to_domains
+
+
+DOMAIN_RE = re.compile(
+    r"^(?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?\.)+[A-Za-z]{2,}$"
+)  # Regex object for matching domains that take up the entire line (or from user input)
+DOMAIN_START_RE = re.compile(
+    r"^(?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?\.)+[A-Za-z]{2,}"
+)  # Regex object for matching domains at the start of lines (or strings)
+IP_RE = re.compile(
+    r"^(?:(?:25[0-5]|(?:2[0-4]|1\d|[1-9]|)\d)\.?\b){4}$", re.M
+)  # Regex object for matching IPs at the start of lines
+
 parser = argparse.ArgumentParser()
-parser.add_argument('psu_id', help='ID of the PSU to scan (ex. 410 OR 31B)', nargs='?', default='')
-parser.add_argument('psu_name', help='Optional name of the PSU (ex. \'Pitt County Schools\')', nargs='?', default = '')
-parser.add_argument('psu_domain', help='Root domain of the given PSU (ex. pitt.k12.nc.us OR daretolearn.org)', nargs='?', default='')
-parser.add_argument('-i', '--interactive', help='Interactive mode: program will prompt you to input PSU ID and Domain', action='store_true')
+parser.add_argument(
+    "psu_id", help="ID of the PSU to scan (ex. 410 OR 31B)", nargs="?", default=""
+)
+parser.add_argument(
+    "psu_name",
+    help="Optional name of the PSU (ex. 'Pitt County Schools')",
+    nargs="?",
+    default="",
+)
+parser.add_argument(
+    "psu_domain",
+    help="Root domain of the given PSU (ex. pitt.k12.nc.us OR daretolearn.org)",
+    nargs="?",
+    default="",
+)
+parser.add_argument(
+    "-i",
+    "--interactive",
+    help="Interactive mode: program will prompt you to input PSU ID and Domain",
+    action="store_true",
+)
+parser.add_argument(
+    "-a",
+    "--allowlist",
+    default="allowlist.txt",
+    help="Allowlist file for crawler (default: allowlist.txt)",
+)
+parser.add_argument(
+    "-b",
+    "--blocklist",
+    default="blocklist.txt",
+    help="Blocklist file for crawler (default: blocklist.txt)",
+)
+parser.add_argument(
+    "-c",
+    "--concurrency",
+    type=int,
+    default=50,
+    help="Max concurrent sockets (default: 50)",
+)
+parser.add_argument(
+    "-d", "--depth", type=int, default=3, help="Max crawl depth (default: 3)"
+)
+parser.add_argument(
+    "-m",
+    "--maxpages",
+    type=int,
+    default=1000,
+    help="Max pages to crawl (default: 1000)",
+)
+parser.add_argument(
+    "-o", "--output", default=None, help="Output file for crawler results"
+)
 
-# Parse args into the 'args' variable. Arguments are accessible by using args.[argument name]
 args = parser.parse_args()
 
 
 # Asset Class (object)
 class Asset:
     def __init__(self, ip):
-        self.ip = ip                    # Asset IP address
-        self.in_block = False           # Whether or not the IP is in the MCNC block for the supplied PSU (TODO: Implement check for this)
-        self.ping_status = 'DOWN'       # Is this asset responding to pings? Default = DOWN
-        self.asn = ''                   # ASN this IP belongs to
-        self.domains = []               # List of domains associated with this IP
-        self.source = ''                # What tool was used to find this Asset
-        self.timestamp = ''             # Timestamp of when this Asset was last found
-        self.comments = ''              # Additional comments about this Asset
+        self.ip = ip  # Asset IP address
+        self.in_block = False  # Whether or not the IP is in the MCNC block for the supplied PSU (TODO: Implement check for this)
+        self.ping_status = "DOWN"  # Is this asset responding to pings? Default = DOWN
+        self.asn = ""  # ASN this IP belongs to
+        self.domains = []  # List of domains associated with this IP
+        self.source = ""  # What tool was used to find this Asset
+        self.timestamp = ""  # Timestamp of when this Asset was last found
+        self.comments = ""  # Additional comments about this Asset
 
     # Equality check between two Asset object, if the IPs are the same, the Assets are the same (usable with ==)
     def __eq__(self, other):
@@ -50,23 +141,27 @@ class Asset:
 # PSU Class (Object), instantiated after all assets for the particular PSU are found
 class PSU:
     def __init__(self, name, id, root_domain, asset_count, assets):
-        self.name = name                        # PSU name
-        self.id = id                            # PSU ID
-        self.root_domain = root_domain          # PSU root domain
-        self.asset_count = asset_count          # Number of assets found for this PSU
-        self.assets = assets                    # List of Asset objects found for this PSU
+        self.name = name  # PSU name
+        self.id = id  # PSU ID
+        self.root_domain = root_domain  # PSU root domain
+        self.asset_count = asset_count  # Number of assets found for this PSU
+        self.assets = assets  # List of Asset objects found for this PSU
 
 
-'''
+"""
 Returns true if the passed string is a domain, otherwise false
-'''
+"""
+
+
 def is_valid_domain(domain: str) -> bool:
     return bool(DOMAIN_RE.match(domain))
 
 
-'''
+"""
 If tool is in interactive mode (-i or --interactive), get PSU ID and Domain from the user's stdin
-'''
+"""
+
+
 def get_inputs():
     try:
         psu = input("Enter PSU ID (e.g. 410): ").strip()
@@ -77,7 +172,7 @@ def get_inputs():
         name = input("Enter PSU Name (e.g. Pitt County Schools): ").strip()
         while not name:
             print("PSU Name cannot be empty.")
-            psu = input("Enter PSU Name (e.g. Pitt County Schools): ").strip()
+            name = input("Enter PSU Name (e.g. Pitt County Schools): ").strip()
 
         root_domain = input("Enter root domain (e.g. gcsnc.com): ").strip()
         while not is_valid_domain(root_domain):
@@ -90,9 +185,11 @@ def get_inputs():
         sys.exit(1)
 
 
-'''
+"""
 Locates a tool with the passed name on the host system, program exits if tool is not found in PATH
-'''
+"""
+
+
 def find_tool(name: str) -> str:
     path = shutil.which(name)
     if not path:
@@ -101,32 +198,46 @@ def find_tool(name: str) -> str:
     return path
 
 
-'''
+"""
 Returns a string of all IPs found in the harvester_output (or any passed string)
-'''
+"""
+
+
 def find_harvester_ips(harvester_output: str) -> str:
     return IP_RE.findall(harvester_output)
 
-'''
+
+"""
 Returns UP or DOWN depending if the passes IP is responding to pings
-'''
+"""
+
+
 def ping_status(ip: str) -> str:
-    print(f'[*] Pinging {ip}')
-    command = ['ping', '-c', '1', '-W', '0.5', ip] # Ping once, timeout after 0.5 seconds
+    print(f"[*] Pinging {ip}")
+    command = [
+        "ping",
+        "-c",
+        "1",
+        "-W",
+        "0.5",
+        ip,
+    ]  # Ping once, timeout after 0.5 seconds
     result = subprocess.run(command, capture_output=True, text=True)
 
-    if not result.returncode: # result will == 0 upon success
-        return 'UP'
+    if not result.returncode:  # result will == 0 upon success
+        return "UP"
     else:
-        return 'DOWN'
+        return "DOWN"
 
 
-'''
+"""
 Returns the ASN of the passed IP
-'''
+"""
+
+
 def asn(ip: str) -> str:
-    print(f'[*] Finding ASN of {ip}')
-    command = ['whois', ip]
+    print(f"[*] Finding ASN of {ip}")
+    command = ["whois", ip]
     result = subprocess.run(command, capture_output=True, text=True).stdout
     result = result.splitlines()
     index = -1
@@ -134,11 +245,11 @@ def asn(ip: str) -> str:
 
     for line in result:
         # Check to find various spellings of Organization
-        index = line.find('Organization')
+        index = line.find("Organization")
         if index == -1:
-            index = line.find('OrgName')
+            index = line.find("OrgName")
         if index == -1:
-            index = line.find('Organisation')
+            index = line.find("Organisation")
 
         # If not found, continue to next line, otherwise break out of for loop
         if index == -1:
@@ -148,43 +259,55 @@ def asn(ip: str) -> str:
 
     # If not found in any line, return empty string
     if not line:
-        return ''
+        return ""
 
     # Return the 'after' portion of the tuple returned by line.partition(':')
     return line.partition(":")[-1].strip()
 
 
-'''
+"""
 Get the current timestamp in ISO 8601 format (YYYY-MM-DDTHH:MM:SS)
-'''
+"""
+
+
 def timestamp() -> str:
-    return dt.datetime.now().isoformat(timespec='seconds')
+    return dt.datetime.now().isoformat(timespec="seconds")
 
 
-'''
+"""
 Return list of tuples containing each unique Harvester domain and their corresponding list of IPs
 e.g. [ ('www.example.com', ['1.2.3.4', '2.3.4.5']), ('test.school.com', ['8.8.8.8']) ]
-'''
+"""
+
+
 def get_harvester_domains(harvester_output: str) -> list:
-    result = [] # List of tuples 
+    result = []  # List of tuples
     # For each line in the harvester_output file passed...
     for line in harvester_output.splitlines():
         ips = []
-        d = ''
+        d = ""
         # ... check if the line starts with a domain string, and if so, split line into the domain string and the comma-separated list of IPs
-        if DOMAIN_START_RE.match(line): # If the line contains a domain at the start of the string
-            d, s, ip_commas = line.partition(':')
-            ips = ip_commas.split(',') # Split comma-separated list into an actual List object
-            result.append((d, ips)) # Add finished tuple to the results list
-        elif line == "[*] Searching Shodan.": # If we get to the line where theHarvester started searching Shodan, we can return
+        if DOMAIN_START_RE.match(
+            line
+        ):  # If the line contains a domain at the start of the string
+            d, s, ip_commas = line.partition(":")
+            ips = ip_commas.split(
+                ","
+            )  # Split comma-separated list into an actual List object
+            result.append((d, ips))  # Add finished tuple to the results list
+        elif (
+            line == "[*] Searching Shodan."
+        ):  # If we get to the line where theHarvester started searching Shodan, we can return
             return result
 
     return result
 
 
-'''
+"""
 Return list of domains associated with the passed IP and return List from get_harvester_domains()
-'''
+"""
+
+
 def get_domains_from_ip(domain_list: list, ip: str) -> list:
     domains = []
     # For each (domain, [ips]) tuple in domain_list...
@@ -196,14 +319,60 @@ def get_domains_from_ip(domain_list: list, ip: str) -> list:
     return domains
 
 
-'''
+def run_crawler_and_resolve(
+    domain,
+    allowlist=None,
+    blocklist=None,
+    concurrency=50,
+    depth=3,
+    maxpages=1000,
+    output=None,
+):
+    import tempfile
+    import os
+
+    if not output:
+        tmp = tempfile.NamedTemporaryFile(mode="w+", suffix=".txt", delete=False)
+        output = tmp.name
+        tmp.close()
+
+    if allowlist and not os.path.exists(allowlist):
+        print(f"[!] Allowlist file not found: {allowlist}", file=sys.stderr)
+        allowlist = None
+    if blocklist and not os.path.exists(blocklist):
+        print(f"[!] Blocklist file not found: {blocklist}", file=sys.stderr)
+        blocklist = None
+
+    crawler_cmd = ["atlas_crawler", f"https://{domain}"]
+    if allowlist:
+        crawler_cmd.extend(["-a", allowlist])
+    if blocklist:
+        crawler_cmd.extend(["-b", blocklist])
+    crawler_cmd.extend(
+        ["-c", str(concurrency), "-d", str(depth), "-m", str(maxpages), "-o", output]
+    )
+
+    print(f"[*] Running atlas_crawler on {domain}...")
+    result = subprocess.run(crawler_cmd)
+    if result.returncode != 0:
+        print(
+            f"[!] atlas_crawler exited with code {result.returncode}", file=sys.stderr
+        )
+
+    print(f"[*] Resolving URLs to IPs from crawler output...")
+    return crawl2ip(output)
+
+
+"""
 Main function, starts program execution
-'''
+"""
+
+
 def main():
     # If interactive mode, ask user for inputs
     if args.interactive:
         psu, name, root_domain = get_inputs()
-    else: # otherwise fill in variable from args
+    else:  # otherwise fill in variable from args
         psu = args.psu_id
         name = args.psu_name
         root_domain = args.psu_domain
@@ -215,6 +384,19 @@ def main():
 
     # Find all necessary utilities in PATH
     harvester_bin = find_tool("theHarvester")
+
+    # ── Step 0: Run crawler and resolve IPs ──────────────────────────────────
+    print("\n[*] Running atlas_crawler web crawl...")
+    crawler_ips, crawler_ip_domains = run_crawler_and_resolve(
+        root_domain,
+        allowlist=args.allowlist,
+        blocklist=args.blocklist,
+        concurrency=args.concurrency,
+        depth=args.depth,
+        maxpages=args.maxpages,
+        output=args.output,
+    )
+    print("[+] Crawler phase completed")
 
     # ── Step 1: Run theHarvester, capturing both stdout + stderr ──────────────
     print("\n[*] Running theHarvester...")
@@ -230,7 +412,9 @@ def main():
     )
 
     # Combine stdout + stderr so nothing is lost and convert to string
-    harvester_output = (harvester_result.stdout + harvester_result.stderr).decode('UTF-8')
+    harvester_output = (harvester_result.stdout + harvester_result.stderr).decode(
+        "UTF-8"
+    )
 
     # If theHarvester output is empty, something has gone horribly wrong, so exit with error
     if not harvester_output.strip():
@@ -239,43 +423,49 @@ def main():
 
     # If theHarvester return code != 0, print an error but don't exit
     if harvester_result.returncode != 0:
-        print(f"[!] theHarvester exited with code {harvester_result.returncode}", file=sys.stderr)
+        print(
+            f"[!] theHarvester exited with code {harvester_result.returncode}",
+            file=sys.stderr,
+        )
         # Don't hard-exit — theHarvester sometimes returns non-zero even on partial success
 
     print("[+] theHarvester completed")
 
+    # ── Step 2: Parse Harvester and Crawler output into JSON objects ─────────
+    print("\n[*] Starting Output Parsing")
 
-    # ── Step 2: Parse theHarvester output into JSON objects ─────────
-    print("\n[*] Starting Harvester Output Parsing")
-
-    # print(harvester_output) # DEBUG
-    # print(find_harvester_ips(harvester_output)) ## DEBUG
-
-    # Iterate over all IPs found by theHarvester
-    harvester_assets = []
+    all_assets = []
     timestamp_string = timestamp()
+
+    # Process Harvester assets
     harvester_domains = get_harvester_domains(harvester_output)
-    # print(harvester_domains) # DEBUG
-
-    # Construct Asset objects for every IP found by theHarvester
     for ip in find_harvester_ips(harvester_output):
-        asset = Asset(ip)                                               # Set IP
-        asset.ping_status = ping_status(ip)                             # Set Ping status
-        asset.asn = asn(ip)                                             # Set ASN
-        asset.domains = get_domains_from_ip(harvester_domains, ip)      # Set Domains List
-        asset.source = 'theHarvester'                                   # Set Source (theHarvester)
-        asset.timestamp = timestamp_string                              # Set Timestamp to timestamp calculated before the for loop
+        asset = Asset(ip)
+        asset.ping_status = ping_status(ip)
+        asset.asn = asn(ip)
+        asset.domains = get_domains_from_ip(harvester_domains, ip)
+        asset.source = "theHarvester"
+        asset.timestamp = timestamp_string
+        all_assets.append(asset)
 
-        harvester_assets.append(asset)                                  # Append asset to harvester_assets, will combine later with crawler_assets to create unified list
+    # Process Crawler assets
+    for ip in crawler_ips:
+        asset = Asset(ip)
+        asset.ping_status = ping_status(ip)
+        asset.asn = asn(ip)
+        asset.domains = crawler_ip_domains.get(ip, [])
+        asset.source = "atlas_crawler"
+        asset.timestamp = timestamp_string
+        all_assets.append(asset)
 
-    # JSONify every Asset (DEBUG)
-    for asset in harvester_assets:
-        asset_string = json.dumps(asset, default=lambda o: o.__dict__, indent=4) # DEBUG, JSONify the Asset object
-        print(asset_string) # DEBUG, print JSON to stdout
+    # JSONify all assets
+    for asset in all_assets:
+        print(json.dumps(asset, default=lambda o: o.__dict__, indent=4))
 
-    print(f"\n[+] Finished Harvester Parsing, got {len(harvester_assets)} assets!")
+    print(
+        f"\n[+] Finished Parsing: {len(all_assets)} assets total ({len(all_assets) - len(crawler_ips)} harvester, {len(crawler_ips)} crawler)"
+    )
 
 
 if __name__ == "__main__":
     main()
-

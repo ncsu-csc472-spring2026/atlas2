@@ -1,0 +1,12 @@
+chrome-extension
+file://
+C:/
+facebook
+instagram
+twitter
+x.com
+youtube
+linkedin
+pinterest
+google
+microsoft
