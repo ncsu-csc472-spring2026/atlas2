@@ -504,14 +504,12 @@ def main():
             f"\n[+] Finished Parsing: {len(all_assets)} assets total ({len(all_assets) - len(crawler_ips)} harvester, {len(crawler_ips)} crawler)"
             )
 
-
-    ### DATA EXPORTING DEBUG ###
-
     # Create PSU object
-    psu_object = PSU(name, psu, root_domain, 123, harvester_assets)
+    psu_object = PSU(name, psu, root_domain, 123, all_assets)
+
     # CSV export functions if the flag is set
     if args.csv:
-        csv.export_assets_as_csv(f'asset_list.csv', harvester_assets)
+        csv.export_assets_as_csv(f'asset_list.csv', all_assets)
         csv.export_psu_as_csv(psu_object)
 
 if __name__ == "__main__":
