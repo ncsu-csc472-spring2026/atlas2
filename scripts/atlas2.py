@@ -12,6 +12,7 @@ import sys
 import argparse         # For command-line argument parsing
 import json             # For JSON object export
 import datetime as dt   # For timestamps (see strftime())
+import atlas2_csv as csv # For CSV Exporting
 import ipaddress
 
 DOMAIN_RE = re.compile(r'^(?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?\.)+[A-Za-z]{2,}$') # Regex object for matching domains that take up the entire line (or from user input)
@@ -25,6 +26,7 @@ parser.add_argument('psu_name', help='Optional name of the PSU (ex. \'Pitt Count
 parser.add_argument('psu_domain', help='Root domain of the given PSU (ex. pitt.k12.nc.us OR daretolearn.org)', nargs='?', default='')
 parser.add_argument('block', help='Allows for input of comma seperated IP blocks (ex.152.26.20.64/26,152.26.23.0/25)', nargs='?', default='')
 parser.add_argument('-i', '--interactive', help='Interactive mode: program will prompt you to input PSU ID and Domain', action='store_true')
+parser.add_argument('-c', '--csv', help='Enables .csv exporting to "{psu_id}_{psu_name}.csv"', action='store_true')
 
 # Parse args into the 'args' variable. Arguments are accessible by using args.[argument name]
 args = parser.parse_args()
@@ -97,7 +99,7 @@ def get_inputs():
         name = input("Enter PSU Name (e.g. Pitt County Schools): ").strip()
         while not name:
             print("PSU Name cannot be empty.")
-            psu = input("Enter PSU Name (e.g. Pitt County Schools): ").strip()
+            name = input("Enter PSU Name (e.g. Pitt County Schools): ").strip().replace(' ', '_')
 
         root_domain = input("Enter root domain (e.g. gcsnc.com): ").strip()
         while not is_valid_domain(root_domain):
@@ -224,7 +226,7 @@ def get_domains_from_ip(domain_list: list, ip: str) -> list:
     # For each (domain, [ips]) tuple in domain_list...
     for pair in domain_list:
         # ... if IP in the tuple, add the domain of the tuple to the domains list to return
-        if ip in pair[1]:
+        if ip in pair[1] and pair[0] not in domains: # Avoid duplicates as well
             domains.append(pair[0])
 
     return domains
@@ -241,9 +243,9 @@ def main():
     if args.interactive:
         psu, name, root_domain, blocks = get_inputs()
     else: # otherwise fill in variable from args
-        psu = args.psu_id
-        name = args.psu_name
-        root_domain = args.psu_domain
+        psu = args.psu_id.strip()
+        name = args.psu_name.strip().replace(' ', '_')
+        root_domain = args.psu_domain.strip()
         if args.block:
             blocks = is_valid_blocks(args.block)
 
@@ -318,6 +320,15 @@ def main():
 
     print(f"\n[+] Finished Harvester Parsing, got {len(harvester_assets)} assets!")
 
+
+    ### DATA EXPORTING DEBUG ###
+
+    # Create PSU object
+    psu_object = PSU(name, psu, root_domain, 123, harvester_assets)
+    # CSV export functions if the flag is set
+    if args.csv:
+        csv.export_assets_as_csv(f'asset_list.csv', harvester_assets)
+        csv.export_psu_as_csv(psu_object)
 
 if __name__ == "__main__":
     main()
