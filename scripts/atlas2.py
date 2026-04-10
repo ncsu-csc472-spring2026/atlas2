@@ -12,6 +12,8 @@ import sys
 import argparse         # For command-line argument parsing
 import json             # For JSON object export
 import datetime as dt   # For timestamps (see strftime())
+import atlas2_csv as csv # For CSV Exporting
+import ipaddress
 
 DOMAIN_RE = re.compile(r'^(?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?\.)+[A-Za-z]{2,}$') # Regex object for matching domains that take up the entire line (or from user input)
 DOMAIN_START_RE = re.compile(r'^(?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?\.)+[A-Za-z]{2,}') # Regex object for matching domains at the start of lines (or strings)
@@ -22,7 +24,9 @@ parser = argparse.ArgumentParser()
 parser.add_argument('psu_id', help='ID of the PSU to scan (ex. 410 OR 31B)', nargs='?', default='')
 parser.add_argument('psu_name', help='Optional name of the PSU (ex. \'Pitt County Schools\')', nargs='?', default = '')
 parser.add_argument('psu_domain', help='Root domain of the given PSU (ex. pitt.k12.nc.us OR daretolearn.org)', nargs='?', default='')
+parser.add_argument('block', help='Allows for input of comma seperated IP blocks (ex.152.26.20.64/26,152.26.23.0/25)', nargs='?', default='')
 parser.add_argument('-i', '--interactive', help='Interactive mode: program will prompt you to input PSU ID and Domain', action='store_true')
+parser.add_argument('-c', '--csv', help='Enables .csv exporting to "{psu_id}_{psu_name}.csv"', action='store_true')
 
 # Parse args into the 'args' variable. Arguments are accessible by using args.[argument name]
 args = parser.parse_args()
@@ -49,13 +53,13 @@ class Asset:
 
 # PSU Class (Object), instantiated after all assets for the particular PSU are found
 class PSU:
-    def __init__(self, name, id, root_domain, asset_count, assets):
+    def __init__(self, name, id, root_domain, asset_count, assets, blocks):
         self.name = name                        # PSU name
         self.id = id                            # PSU ID
         self.root_domain = root_domain          # PSU root domain
         self.asset_count = asset_count          # Number of assets found for this PSU
         self.assets = assets                    # List of Asset objects found for this PSU
-
+        self.blocks = blocks                    # List of IP blocks to check
 
 '''
 Returns true if the passed string is a domain, otherwise false
@@ -63,6 +67,24 @@ Returns true if the passed string is a domain, otherwise false
 def is_valid_domain(domain: str) -> bool:
     return bool(DOMAIN_RE.match(domain))
 
+'''
+Checks if the input IP blocks are valid
+'''
+def is_valid_blocks(blocks_str: str) -> list:
+    blocks = []
+    if(blocks_str == ""):
+        print(f"[!] No block given", file = sys.stderr)
+        sys.exit(1)
+    else:
+        for block in blocks_str.split(','):
+            block = block.strip()
+        try:
+            blocks.append(ipaddress.ip_network(block, strict=False))
+        except ValueError:
+            print(f"[!] Invalid block: {block}", file = sys.stderr)
+            sys.exit(1)
+
+    return blocks
 
 '''
 If tool is in interactive mode (-i or --interactive), get PSU ID and Domain from the user's stdin
@@ -77,14 +99,17 @@ def get_inputs():
         name = input("Enter PSU Name (e.g. Pitt County Schools): ").strip()
         while not name:
             print("PSU Name cannot be empty.")
-            psu = input("Enter PSU Name (e.g. Pitt County Schools): ").strip()
+            name = input("Enter PSU Name (e.g. Pitt County Schools): ").strip().replace(' ', '_')
 
         root_domain = input("Enter root domain (e.g. gcsnc.com): ").strip()
         while not is_valid_domain(root_domain):
             print(f"Invalid domain: {root_domain}")
             root_domain = input("Enter root domain (e.g. gcsnc.com): ").strip()
 
-        return psu, name, root_domain
+        blocks_input = input("Enter a list of ip blocks seperated by commas (e.g.152.26.20.64/26,152.26.23.0/25): ").strip()
+        blocks = is_valid_blocks(blocks_input)
+
+        return psu, name, root_domain, blocks
     except (EOFError, KeyboardInterrupt):
         print("\nInput cancelled.", file=sys.stderr)
         sys.exit(1)
@@ -180,7 +205,18 @@ def get_harvester_domains(harvester_output: str) -> list:
             return result
 
     return result
-
+'''
+Checks if an ip address is in the provided list of IP blocks
+'''
+def ip_block_checker(ip: str, blocks: list) -> bool:
+    try:
+        ip_obj = ipaddress.ip_address(ip)
+        for block in blocks:
+            if ip_obj in block:
+                return True
+    except ValueError:
+        return False
+    return False
 
 '''
 Return list of domains associated with the passed IP and return List from get_harvester_domains()
@@ -190,23 +226,28 @@ def get_domains_from_ip(domain_list: list, ip: str) -> list:
     # For each (domain, [ips]) tuple in domain_list...
     for pair in domain_list:
         # ... if IP in the tuple, add the domain of the tuple to the domains list to return
-        if ip in pair[1]:
+        if ip in pair[1] and pair[0] not in domains: # Avoid duplicates as well
             domains.append(pair[0])
 
     return domains
-
 
 '''
 Main function, starts program execution
 '''
 def main():
+
+    # Holds list of blocks input by the user
+    blocks = []
+
     # If interactive mode, ask user for inputs
     if args.interactive:
-        psu, name, root_domain = get_inputs()
+        psu, name, root_domain, blocks = get_inputs()
     else: # otherwise fill in variable from args
-        psu = args.psu_id
-        name = args.psu_name
-        root_domain = args.psu_domain
+        psu = args.psu_id.strip()
+        name = args.psu_name.strip().replace(' ', '_')
+        root_domain = args.psu_domain.strip()
+        if args.block:
+            blocks = is_valid_blocks(args.block)
 
         # Exit on error (non-interactive mode and empty arguments)
         if not psu or not root_domain or not name or not is_valid_domain(root_domain):
@@ -265,7 +306,11 @@ def main():
         asset.domains = get_domains_from_ip(harvester_domains, ip)      # Set Domains List
         asset.source = 'theHarvester'                                   # Set Source (theHarvester)
         asset.timestamp = timestamp_string                              # Set Timestamp to timestamp calculated before the for loop
-
+    
+        # Checks if the ip of the asset is in the blocks
+        if blocks:
+            asset.in_block = ip_block_checker(ip, blocks)
+    
         harvester_assets.append(asset)                                  # Append asset to harvester_assets, will combine later with crawler_assets to create unified list
 
     # JSONify every Asset (DEBUG)
@@ -275,6 +320,15 @@ def main():
 
     print(f"\n[+] Finished Harvester Parsing, got {len(harvester_assets)} assets!")
 
+
+    ### DATA EXPORTING DEBUG ###
+
+    # Create PSU object
+    psu_object = PSU(name, psu, root_domain, 123, harvester_assets)
+    # CSV export functions if the flag is set
+    if args.csv:
+        csv.export_assets_as_csv(f'asset_list.csv', harvester_assets)
+        csv.export_psu_as_csv(psu_object)
 
 if __name__ == "__main__":
     main()
