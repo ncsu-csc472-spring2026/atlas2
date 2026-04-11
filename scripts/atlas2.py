@@ -17,6 +17,10 @@ import socket  # For DNS resolution
 import atlas2_csv as csv # For CSV Exporting
 import ipaddress
 
+
+"""
+Resolve crawler output into a lsit of IPs that can be cosntructed into Assets later
+"""
 def crawl2ip(input_file):
     url_re = re.compile(r"https?://[^\s/]+")
     ip_re = re.compile(r"^(\d{1,3}\.){3}\d{1,3}$")
@@ -43,7 +47,8 @@ def crawl2ip(input_file):
                     if ip not in ip_to_domains:
                         ip_to_domains[ip] = []
                     ip_to_domains[ip].append(domain)
-        except (socket.gaierror, socket.herror):
+        except (socket.gaierror, socket.herror, UnicodeEncodeError):
+            print(f"[!] Error resolving {domain}", file=sys.stderr)
             pass
 
     for ip in ip_to_domains:
@@ -132,26 +137,24 @@ class Asset:
 
     # Equality check between two Asset object, if the IPs are the same, the Assets are the same (usable with ==)
     def __eq__(self, other):
-        if isInstance(other, Asset):
+        if isinstance(other, Asset):
             return self.ip == other.ip
         return NotImplemented
 
 
 # PSU Class (Object), instantiated after all assets for the particular PSU are found
 class PSU:
-    def __init__(self, name, id, root_domain, asset_count, assets, blocks):
+    def __init__(self, name, id, root_domain, asset_count, blocks, assets):
         self.name = name                        # PSU name
         self.id = id                            # PSU ID
         self.root_domain = root_domain          # PSU root domain
         self.asset_count = asset_count          # Number of assets found for this PSU
-        self.assets = assets                    # List of Asset objects found for this PSU
         self.blocks = blocks                    # List of IP blocks to check
+        self.assets = assets                    # List of Asset objects found for this PSU
 
 """
 Returns true if the passed string is a domain, otherwise false
 """
-
-
 def is_valid_domain(domain: str) -> bool:
     return bool(DOMAIN_RE.match(domain))
 
@@ -174,11 +177,10 @@ def is_valid_blocks(blocks_str: str) -> list:
 
     return blocks
 
+
 """
 If tool is in interactive mode (-i or --interactive), get PSU ID and Domain from the user's stdin
 """
-
-
 def get_inputs():
     try:
         psu = input("Enter PSU ID (e.g. 410): ").strip()
@@ -208,8 +210,6 @@ def get_inputs():
 """
 Locates a tool with the passed name on the host system, program exits if tool is not found in PATH
 """
-
-
 def find_tool(name: str) -> str:
     path = shutil.which(name)
     if not path:
@@ -221,8 +221,6 @@ def find_tool(name: str) -> str:
 """
 Returns a string of all IPs found in the harvester_output (or any passed string)
 """
-
-
 def find_harvester_ips(harvester_output: str) -> str:
     return IP_RE.findall(harvester_output)
 
@@ -230,8 +228,6 @@ def find_harvester_ips(harvester_output: str) -> str:
 """
 Returns UP or DOWN depending if the passes IP is responding to pings
 """
-
-
 def ping_status(ip: str) -> str:
     print(f"[*] Pinging {ip}")
     command = [
@@ -253,8 +249,6 @@ def ping_status(ip: str) -> str:
 """
 Returns the ASN of the passed IP
 """
-
-
 def asn(ip: str) -> str:
     print(f"[*] Finding ASN of {ip}")
     command = ["whois", ip]
@@ -288,8 +282,6 @@ def asn(ip: str) -> str:
 """
 Get the current timestamp in ISO 8601 format (YYYY-MM-DDTHH:MM:SS)
 """
-
-
 def timestamp() -> str:
     return dt.datetime.now().isoformat(timespec="seconds")
 
@@ -298,8 +290,6 @@ def timestamp() -> str:
 Return list of tuples containing each unique Harvester domain and their corresponding list of IPs
 e.g. [ ('www.example.com', ['1.2.3.4', '2.3.4.5']), ('test.school.com', ['8.8.8.8']) ]
 """
-
-
 def get_harvester_domains(harvester_output: str) -> list:
     result = []  # List of tuples
     # For each line in the harvester_output file passed...
@@ -334,11 +324,10 @@ def ip_block_checker(ip: str, blocks: list) -> bool:
         return False
     return False
 
+
 """
 Return list of domains associated with the passed IP and return List from get_harvester_domains()
 """
-
-
 def get_domains_from_ip(domain_list: list, ip: str) -> list:
     domains = []
     # For each (domain, [ips]) tuple in domain_list...
@@ -349,6 +338,9 @@ def get_domains_from_ip(domain_list: list, ip: str) -> list:
 
     return domains
 
+"""
+Run the ATLAS Crawler and resolve IPs from hostnames
+"""
 def run_crawler_and_resolve(
     domain,
     allowlist=None,
@@ -394,10 +386,29 @@ def run_crawler_and_resolve(
 
 
 """
+Export PSU object as json to file with standard naming convention:
+{PSU_ID}_{PSU_NAME}.json
+"""
+def export_json_psu(psu: PSU):
+    with open(f"{'_'.join([psu.id, psu.name])}.json", "w", encoding="UTF-8") as json_file:
+        json_file.write(json.dumps(psu, default=lambda o: o.__dict__, indent=4))
+
+    return
+
+
+"""
+Appends an asset to a list of assets, checking if the asset is already in the list first
+"""
+def append_asset_to_list(all_assets, asset):
+    if asset not in all_assets:
+        all_assets.append(asset)
+
+    return
+
+
+"""
 Main function, starts program execution
 """
-
-
 def main():
 
     # Holds list of blocks input by the user
@@ -485,7 +496,9 @@ def main():
         # Checks if the ip of the asset is in the blocks
         if blocks:
             asset.in_block = ip_block_checker(ip, blocks)
-        all_assets.append(asset)
+
+        append_asset_to_list(all_assets, asset) # Append asset to list using helper method (checks for dupes)
+
     # Process Crawler assets
     for ip in crawler_ips:
         asset = Asset(ip)
@@ -494,23 +507,28 @@ def main():
         asset.domains = crawler_ip_domains.get(ip, [])
         asset.source = "atlas_crawler"
         asset.timestamp = timestamp_string
-        all_assets.append(asset)
+        if blocks:
+            asset.in_block = ip_block_checker(ip, blocks)
 
-    # JSONify all assets
-    for asset in all_assets:
-        print(json.dumps(asset, default=lambda o: o.__dict__, indent=4))
+        append_asset_to_list(all_assets, asset)
 
+    # Print finished statement
     print(
             f"\n[+] Finished Parsing: {len(all_assets)} assets total ({len(all_assets) - len(crawler_ips)} harvester, {len(crawler_ips)} crawler)"
             )
 
+    # Create a list of string representations of all IP blocks in 'blocks'
+    block_string_list = list(str(block) for block in blocks) if blocks else []
+
     # Create PSU object
-    psu_object = PSU(name, psu, root_domain, 123, all_assets)
+    psu_object = PSU(name, psu, root_domain, len(all_assets), block_string_list, all_assets)
 
     # CSV export functions if the flag is set
     if args.csv:
-        csv.export_assets_as_csv(f'asset_list.csv', all_assets)
         csv.export_psu_as_csv(psu_object)
+
+    # Always export PSU object as json
+    export_json_psu(psu_object)
 
 if __name__ == "__main__":
     main()
