@@ -171,11 +171,11 @@ def is_valid_blocks(blocks_str: str) -> list:
     else:
         for block in blocks_str.split(','):
             block = block.strip()
-        try:
-            blocks.append(ipaddress.ip_network(block, strict=False))
-        except ValueError:
-            print(f"[!] Invalid block: {block}", file = sys.stderr)
-            sys.exit(1)
+            try:
+                blocks.append(ipaddress.ip_network(block, strict=False))
+            except ValueError as e:
+                print(f"[!] Invalid block: {block}: {e}", file = sys.stderr)
+                sys.exit(1)
 
     return blocks
 
@@ -421,12 +421,13 @@ def main():
     # If interactive mode, ask user for inputs
     if args.interactive:
         psu, name, root_domain, blocks = get_inputs()
-    else: # otherwise fill in variable from args
+    else: # otherwise fill in variable from command-line args
         psu = args.psu_id.strip()
         name = args.psu_name.strip().replace(' ', '_')
         root_domain = args.psu_domain.strip()
         if args.block:
             blocks = is_valid_blocks(args.block)
+            print(f"[+] Loaded {len(blocks)} IP blocks: {blocks}", file=sys.stdout)
 
         # Exit on error (non-interactive mode and empty arguments)
         if not psu or not root_domain or not name or not is_valid_domain(root_domain):
