@@ -10,6 +10,7 @@ import re  # Regex parser
 import shutil
 import subprocess
 import sys
+import os
 import argparse  # For command-line argument parsing
 import json  # For JSON object export
 import datetime as dt  # For timestamps (see strftime())
@@ -119,6 +120,7 @@ parser.add_argument(
 parser.add_argument('block', help='Allows for input of comma seperated IP blocks (ex.152.26.20.64/26,152.26.23.0/25)', nargs='?', default='')
 parser.add_argument('-i', '--interactive', help='Interactive mode: program will prompt you to input PSU ID and Domain', action='store_true')
 parser.add_argument('-c', '--csv', help='Enables .csv exporting to "{psu_id}_{psu_name}.csv"', action='store_true')
+parser.add_argument('-f', '--folder', help='Path to directory where all output files will be stored', nargs='?', default='')
 
 args = parser.parse_args()
 
@@ -351,7 +353,6 @@ def run_crawler_and_resolve(
     output=None,
 ):
     import tempfile
-    import os
 
     if not output:
         tmp = tempfile.NamedTemporaryFile(mode="w+", suffix=".txt", delete=False)
@@ -389,8 +390,8 @@ def run_crawler_and_resolve(
 Export PSU object as json to file with standard naming convention:
 {PSU_ID}_{PSU_NAME}.json
 """
-def export_json_psu(psu: PSU):
-    with open(f"{'_'.join([psu.id, psu.name])}.json", "w", encoding="UTF-8") as json_file:
+def export_json_psu(psu: PSU, folder: str):
+    with open(f"{folder}{'_'.join([psu.id, psu.name])}.json", "w", encoding="UTF-8") as json_file:
         json_file.write(json.dumps(psu, default=lambda o: o.__dict__, indent=4))
 
     return
@@ -414,6 +415,9 @@ def main():
     # Holds list of blocks input by the user
     blocks = []
 
+    # Directory where all output files will be stored (filled by args.folder)
+    folder = ""
+
     # If interactive mode, ask user for inputs
     if args.interactive:
         psu, name, root_domain, blocks = get_inputs()
@@ -428,6 +432,10 @@ def main():
         if not psu or not root_domain or not name or not is_valid_domain(root_domain):
             print("[!] Invalid PSU ID or Domain or Name", file=sys.stderr)
             sys.exit(1)
+
+    # Add trailing '/' if output folder argument does not end with one
+    if args.folder:
+        folder = os.path.abspath(args.folder) + "/"
 
     # Find all necessary utilities in PATH
     harvester_bin = find_tool("theHarvester")
@@ -525,10 +533,10 @@ def main():
 
     # CSV export functions if the flag is set
     if args.csv:
-        csv.export_psu_as_csv(psu_object)
+        csv.export_psu_as_csv(psu_object, folder)
 
     # Always export PSU object as json
-    export_json_psu(psu_object)
+    export_json_psu(psu_object, folder)
 
 if __name__ == "__main__":
     main()

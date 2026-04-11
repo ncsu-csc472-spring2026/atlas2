@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+ 
+[project]
+name = "atlas2"
+version = "0.1.0"
+description = ""
+readme = "README.md"
+requires-python = ">=3.8"
+license = { text = "" }
+authors = [
+    { name = "Perry Ellis", email = "perrydellis37@gmail.com" },
+    # TODO: FILL IN REST OF NAMES
+]
+keywords = []
+classifiers = [
+    "Operating System :: POSIX :: Linux",
+]
+dependencies = [
+    "theHarvester",
+]
+ 
+[project.scripts]
+atlas2 = "atlas2:main"
+atlas2_service = "atlas2_service:main"
+ 
+[tool.setuptools]
+py-modules = ["atlas2", "atlas2_csv", "atlas2_service"]
