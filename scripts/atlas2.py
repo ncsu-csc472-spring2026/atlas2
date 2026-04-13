@@ -523,7 +523,7 @@ def main():
 
     # Print finished statement
     print(
-            f"\n[+] Finished Parsing: {len(all_assets)} assets total ({len(all_assets) - len(crawler_ips)} harvester, {len(crawler_ips)} crawler)"
+            f"\n[+] Finished Parsing: {len(all_assets)} assets total ({len([asset for asset in all_assets if asset.source == 'theHarvester'])} harvester, {len([asset for asset in all_assets if asset.source == 'atlas_crawler'])} crawler)"
             )
 
     # Create a list of string representations of all IP blocks in 'blocks'

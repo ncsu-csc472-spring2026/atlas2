@@ -18,7 +18,7 @@ ROOT_DIR = "/home/pdellis/atlas_out"
 DEFAULT_MODE = 0o755
 
 # Maximum number of ATLAS2 scans capable of running concurrently
-MAX_THREADS = 30
+MAX_THREADS = 10
 # Bounded Semaphore that each thread must acquire to start, bounding the number of threads running
 sema = threading.BoundedSemaphore(value=MAX_THREADS)
 
@@ -75,7 +75,7 @@ def main():
             # If the full PSU path does not exist, create it
             if not os.path.exists(full_dir):
                 os.mkdir(full_dir, DEFAULT_MODE)
-            
+
             print(f"[+] Creating thread for {full_name} with blocks string: {blocks_str}")
             t = threading.Thread(target=run_atlas2, args=(process_str, full_dir, full_name))
             threads.append(t)
@@ -83,8 +83,11 @@ def main():
     for t in threads:
         t.start()
 
+    i = len(threads)
     for t in threads:
+        print(f"[-] Threads Remaining: {i}")
         t.join()
+        i -= 1
 
 if __name__ == "__main__":
     main()
