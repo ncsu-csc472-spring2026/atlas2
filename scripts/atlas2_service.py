@@ -25,7 +25,7 @@ MAX_THREADS = 10
 parser = argparse.ArgumentParser()
 parser.add_argument("psu_list", help="Path for the Master PSU list file")
 parser.add_argument("output", help="Directory path for the output folders for each PSU will be placed")
-parser.add_argument("-t", "--threads", help="Number of threads to run the program on", nargs="?", default=MAX_THREADS)
+parser.add_argument("-t", "--threads", help="Number of threads to run the program on", nargs="?", type=int, default=MAX_THREADS)
 parser.add_argument("-f", "--tarfile", help="Output tarfile where all output directories will be archived to", nargs="?", default="")
 parser.add_argument("-b", "--blocklist", help="Master blocklist file for the ATLAS Crawler", nargs="?", default="")
 
@@ -86,7 +86,7 @@ def main():
                 # Make sure the path is valid first
                 if os.path.exists(args.blocklist):
                     process_str.extend(["-b", args.blocklist]) # Append flag + arg to the atlas2 command-line arguments
-                else # If blocklist path is invalid, print error and quit
+                else: # If blocklist path is invalid, print error and quit
                     print(f"[!] Invalid blocklist path!")
                     sys.exit(1)
 
@@ -103,7 +103,7 @@ def main():
 
     i = len(threads)
     for t in threads:
-        print(f"[-] Threads Remaining: {i}")
+        print(f"[-] Threads Remaining: {i}", file=sys.stdout)
         t.join()
         i -= 1
 

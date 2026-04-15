@@ -1,0 +1,8 @@
+[Unit]
+Description=ATLAS2 Enhanced Asset Discovery Service
+ConditionPathExists=[PATH TO OUTPUT BASE DIRECTORY]
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/atlas2_service [PATH TO MASTER PSU CSV] [PATH TO OUTPUT BASE DIRECTORY] -t 8 -f [PATH TO DESIRED OUTPUT TAR FILE]
+
