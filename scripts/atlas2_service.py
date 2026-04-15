@@ -51,13 +51,10 @@ def run_atlas2(process_str: list, full_dir: str, full_name: str):
 Main function, creates threads out of all master PSU list file rows and waits for them to finish
 """
 def main():
-    if len(sys.argv) != 2:
-        print("Invalid Arguments, must be 1 argument (Master PSU CSV File Path)")
-        sys.exit(1)
 
-    master_list_fn = sys.argv[1] # Filename of master PSU list passed as arg
-    threads = [] # List of threads
+    threads = [] # List of thread worker, one for each PSU
 
+    # Context manager, open file pointed to by psu_list argument
     with open(args.psu_list, "r", encoding="UTF-8") as master_list:
         master_reader = csv.reader(master_list, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
 
