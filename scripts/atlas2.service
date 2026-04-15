@@ -1,0 +1,8 @@
+[Unit]
+Description=ATLAS2 Enhanced Asset Discovery Service
+ConditionPathExists=/usr/share/atlas2/
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/atlas2_service /home/shared/atlas2/lists/master_psu_list.csv /usr/share/atlas2 
+
