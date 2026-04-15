@@ -7,6 +7,7 @@ import csv # To read master PSU list
 import subprocess # To run atlas2 with command-line arguments
 import ast # To get literal List objects from CSV
 import argparse
+import tarfile # For zipping output
 
 # Constants defining indeces of the PSU's ID, name, domain, URL (unused), and IP blocks in the master PSU CSV
 ID_IDX = 0
@@ -25,7 +26,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument("psu_list", help="Path for the Master PSU list file")
 parser.add_argument("output", help="Directory path for the output folders for each PSU will be placed")
 parser.add_argument("-t", "--threads", help="Number of threads to run the program on", nargs="?", default=MAX_THREADS)
-
+parser.add_argument("-f", "--tarfile", help="Output tarfile where all output directories will be archived to", nargs="?", default="")
 args = parser.parse_args()
 
 # Bounded Semaphore that each thread must acquire to start, bounding the number of threads running
@@ -97,6 +98,15 @@ def main():
         print(f"[-] Threads Remaining: {i}")
         t.join()
         i -= 1
+
+    if args.tarfile:
+        print(f"[*] Writing Tarfile to {args.tarfile}")
+        if os.path.exists(args.tarfile):
+            print(f"[!] {args.tarfile} already exists, removing")
+            os.remove(args.tarfile)
+        with tarfile.open(args.tarfile, "w:gz") as tar:
+            tar.add(args.output, recursive=True)
+            print(f"[+] Tarfile written to {args.tarfile}")
 
 if __name__ == "__main__":
     main()
