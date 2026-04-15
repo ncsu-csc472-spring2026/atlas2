@@ -27,6 +27,8 @@ parser.add_argument("psu_list", help="Path for the Master PSU list file")
 parser.add_argument("output", help="Directory path for the output folders for each PSU will be placed")
 parser.add_argument("-t", "--threads", help="Number of threads to run the program on", nargs="?", default=MAX_THREADS)
 parser.add_argument("-f", "--tarfile", help="Output tarfile where all output directories will be archived to", nargs="?", default="")
+parser.add_argument("-b", "--blocklist", help="Master blocklist file for the ATLAS Crawler", nargs="?", default="")
+
 args = parser.parse_args()
 
 # Bounded Semaphore that each thread must acquire to start, bounding the number of threads running
@@ -78,6 +80,15 @@ def main():
                             "-c",
                             "-f", full_dir
                            ]
+
+            # If global blocklist is defined...
+            if args.blocklist:
+                # Make sure the path is valid first
+                if os.path.exists(args.blocklist):
+                    process_str.extend(["-b", args.blocklist]) # Append flag + arg to the atlas2 command-line arguments
+                else # If blocklist path is invalid, print error and quit
+                    print(f"[!] Invalid blocklist path!")
+                    sys.exit(1)
 
             # If the full PSU path does not exist, create it
             if not os.path.exists(full_dir):
