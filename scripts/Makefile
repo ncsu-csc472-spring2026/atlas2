@@ -1,4 +1,4 @@
-
+SHELL := /bin/bash
 
 service: build
 	sudo cp atlas2.service atlas2.timer /etc/systemd/system/
@@ -14,14 +14,13 @@ build: pip_install
 	echo "[+] Copied built Python scripts to /usr/bin/"
 
 pip_install: make_venv
-	pip install .
+	source ./.venv/bin/activate && pip install .
 	echo "[+] Built ATLAS2 scripts"
 
 make_venv:
-	if [ -z "$VIRTUAL_ENV" ]; then;
-		python -m venv .venv;
-		source .venv/bin/activate;
-		echo "[+] Created Python virtual environment (.venv)";
+	if [ ! -d ".venv" ]; then \
+		python -m venv .venv; \
+		echo "[+] Created Python virtual environment (.venv)"; \
 	fi
 
 
