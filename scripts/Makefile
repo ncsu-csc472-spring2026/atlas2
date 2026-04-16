@@ -3,6 +3,7 @@ VENV_NAME := atlas2
 VENV_DIR := /usr/lib/$(VENV_NAME)
 BIN_DIR := $(VENV_DIR)/bin
 SERVICE_DIR := /etc/systemd/system
+BANNER_FILE := banner.txt
 
 # Suppress output except for echoes
 ifndef VERBOSE
@@ -37,9 +38,11 @@ build: make_venv # Build Python project in venv
 	source $(BIN_DIR)/activate && sudo $(BIN_DIR)/pip install .
 	echo "[+] Built ATLAS2 scripts in $(BIN_DIR)"
 
-make_venv: # Create Python venv if one does not already exist in "/usr/lib/atlas2"
+make_venv: print_banner # Create Python venv if one does not already exist in "/usr/lib/atlas2"
 	if [ ! -d "$(VENV_DIR)" ]; then \
 		sudo python -m venv $(VENV_DIR); \
 		echo "[+] Created Python virtual environment ($(VENV_DIR))"; \
 	fi
 
+print_banner: # Print a pretty banner from banner.txt
+	sed "s/\[VERSION\!\]/$$(printf '%-10s' $$(grep -Po '(?<=version = \")[^\"]*' pyproject.toml))/g" banner.txt
