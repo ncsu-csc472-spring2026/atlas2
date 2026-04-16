@@ -112,7 +112,7 @@ def main():
         if os.path.exists(args.tarfile):
             print(f"[!] {args.tarfile} already exists, removing")
             os.remove(args.tarfile)
-        with tarfile.open(args.tarfile, "w:gz") as tar:
+        with tarfile.open(f"{args.tarfile}.tar", "w:gz") as tar:
             tar.add(args.output, recursive=True)
             print(f"[+] Tarfile written to {args.tarfile}")
 

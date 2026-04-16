@@ -1,10 +1,18 @@
 SHELL := /bin/bash # Use bash shell to use source command
+BUILD_DIR := $(CURDIR)/.venv/bin
 
-build: pip_install # Install atlas2 and atlas2_service files into system PATH /usr/bin/ directory
-	sudo cp .venv/bin/atlas2 .venv/bin/atlas2_service /usr/bin/
-	echo "[+] Copied built Python scripts to /usr/bin/"
+copy_to_PATH: build # Install atlas2 and atlas2_service files into system PATH /usr/bin/ directory
+	if [[ -e "/usr/bin/atlas2" || -e "/usr/bin/atlas2_service" ]]; then \
+		echo "[!] ATLAS2 binaries already exist in /usr/bin/, removing..."; \
+		sudo rm /usr/bin/atlas2; \
+		sudo rm /usr/bin/atlas2_service; \
+	fi
+	
+	sudo ln -s $(BUILD_DIR)/atlas2 /usr/bin/atlas2
+	sudo ln -s $(BUILD_DIR)/atlas2_service /usr/bin/atlas2_service
+	echo "[+] Symlinked Python scripts to /usr/bin/"
 
-service: build # Copy service/timer files to systemd user services folder
+service: copy_to_PATH # Copy service/timer files to systemd user services folder
 	# Make sure the actual timer and service files exist, not just the templates
 	if [[ ! -f "./atlas2.timer" || ! -f "./atlas2.service" ]]; then \
 		echo "[!] atlas2.timer and atlas2.service must be present, not just the templates!"; \
@@ -18,7 +26,7 @@ service: build # Copy service/timer files to systemd user services folder
 	sudo systemctl start atlas2.timer
 	echo "[+] Enabled ATLAS2 Systemd timer (2:00 AM EST Daily)"
 
-pip_install: make_venv # Build Python project in venv
+build: make_venv # Build Python project in venv
 	source ./.venv/bin/activate && pip install .
 	echo "[+] Built ATLAS2 scripts"
 
