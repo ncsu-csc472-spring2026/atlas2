@@ -1,15 +1,22 @@
 SHELL := /bin/bash # Use bash shell to use source command
-BUILD_DIR := $(CURDIR)/.venv/bin
+VENV_NAME := atlas2
+VENV_DIR := /usr/lib/$(VENV_NAME)
+BIN_DIR := $(VENV_DIR)/bin
+SERVICE_DIR := /etc/systemd/system
 
-copy_to_PATH: build # Install atlas2 and atlas2_service files into system PATH /usr/bin/ directory
+# Suppress output except for echoes
+ifndef VERBOSE
+.SILENT:
+endif
+
+copy_to_PATH: build # Install atlas2 and atlas2_service files into /usr/bin/
 	if [[ -e "/usr/bin/atlas2" || -e "/usr/bin/atlas2_service" ]]; then \
 		echo "[!] ATLAS2 binaries already exist in /usr/bin/, removing..."; \
 		sudo rm /usr/bin/atlas2; \
 		sudo rm /usr/bin/atlas2_service; \
 	fi
-	
-	sudo ln -s $(BUILD_DIR)/atlas2 /usr/bin/atlas2
-	sudo ln -s $(BUILD_DIR)/atlas2_service /usr/bin/atlas2_service
+	sudo ln -s $(BIN_DIR)/atlas2 /usr/bin/atlas2
+	sudo ln -s $(BIN_DIR)/atlas2_service /usr/bin/atlas2_service
 	echo "[+] Symlinked Python scripts to /usr/bin/"
 
 service: copy_to_PATH # Copy service/timer files to systemd user services folder
@@ -18,7 +25,7 @@ service: copy_to_PATH # Copy service/timer files to systemd user services folder
 		echo "[!] atlas2.timer and atlas2.service must be present, not just the templates!"; \
 		exit 1; \
 	fi
-	sudo cp atlas2.service atlas2.timer /etc/systemd/system/
+	sudo cp atlas2.service atlas2.timer $(SERVICE_DIR)
 	echo "[+] Copied Systemd service and timer files to /etc/systemd/system/"
 	sudo systemctl daemon-reload
 	echo "[*] Reloaded Systemd Daemons"
@@ -27,12 +34,12 @@ service: copy_to_PATH # Copy service/timer files to systemd user services folder
 	echo "[+] Enabled ATLAS2 Systemd timer (2:00 AM EST Daily)"
 
 build: make_venv # Build Python project in venv
-	source ./.venv/bin/activate && pip install .
-	echo "[+] Built ATLAS2 scripts"
+	source $(BIN_DIR)/activate && sudo $(BIN_DIR)/pip install .
+	echo "[+] Built ATLAS2 scripts in $(BIN_DIR)"
 
-make_venv: # Create Python venv if one does not already exist with the name ".venv"
-	if [ ! -d ".venv" ]; then \
-		python -m venv .venv; \
-		echo "[+] Created Python virtual environment (.venv)"; \
+make_venv: # Create Python venv if one does not already exist in "/usr/lib/atlas2"
+	if [ ! -d "$(VENV_DIR)" ]; then \
+		sudo python -m venv $(VENV_DIR); \
+		echo "[+] Created Python virtual environment ($(VENV_DIR))"; \
 	fi
 
