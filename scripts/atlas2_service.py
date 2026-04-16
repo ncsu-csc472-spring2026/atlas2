@@ -26,7 +26,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument("psu_list", help="Path for the Master PSU list file")
 parser.add_argument("output", help="Directory path for the output folders for each PSU will be placed")
 parser.add_argument("-t", "--threads", help="Number of threads to run the program on", nargs="?", type=int, default=MAX_THREADS)
-parser.add_argument("-f", "--tarfile", help="Output tarfile where all output directories will be archived to", nargs="?", default="")
+parser.add_argument("-f", "--tarfile", help="Output tarfile where all output directories will be archived to (e.g. /home/username/atlas2.tar)", nargs="?", default="")
 parser.add_argument("-b", "--blocklist", help="Master blocklist file for the ATLAS Crawler", nargs="?", default="")
 
 args = parser.parse_args()
@@ -98,21 +98,26 @@ def main():
             t = threading.Thread(target=run_atlas2, args=(process_str, full_dir, full_name))
             threads.append(t)
 
+    # Start every thread (each thread will wait until it can acquire the semaphore)
     for t in threads:
         t.start()
 
+    # Join each thread and print how many are left
     i = len(threads)
     for t in threads:
         print(f"[-] Threads Remaining: {i}", file=sys.stdout)
         t.join()
         i -= 1
 
+    # Save tarfile if tarfile flag is set
     if args.tarfile:
         print(f"[*] Writing Tarfile to {args.tarfile}")
+        # Delete old tarfile if it exists
         if os.path.exists(args.tarfile):
             print(f"[!] {args.tarfile} already exists, removing")
             os.remove(args.tarfile)
-        with tarfile.open(f"{args.tarfile}.tar", "w:gz") as tar:
+        # Open new tarfile and add the output directory to it, then zip it (gzip compression)
+        with tarfile.open(f"{args.tarfile}", "w:gz") as tar:
             tar.add(args.output, recursive=True)
             print(f"[+] Tarfile written to {args.tarfile}")
 
