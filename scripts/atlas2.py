@@ -74,7 +74,7 @@ parser.add_argument(
 )
 parser.add_argument(
     "psu_name",
-    help="Optional name of the PSU (ex. 'Pitt County Schools')",
+    help="Name of the PSU (ex. 'Pitt County Schools')",
     nargs="?",
     default="",
 )
