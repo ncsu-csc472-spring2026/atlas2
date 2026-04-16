@@ -4,6 +4,7 @@ VENV_DIR := /usr/lib/$(VENV_NAME)
 BIN_DIR := $(VENV_DIR)/bin
 SERVICE_DIR := /etc/systemd/system
 BANNER_FILE := banner.txt
+SERVICE_OUTPUT_DIR := /etc/atlas2
 
 # Suppress output except for echoes
 ifndef VERBOSE
@@ -20,7 +21,7 @@ copy_to_PATH: build # Install atlas2 and atlas2_service files into /usr/bin/
 	sudo ln -s $(BIN_DIR)/atlas2_service /usr/bin/atlas2_service
 	echo "[+] Symlinked Python scripts to /usr/bin/"
 
-service: copy_to_PATH # Copy service/timer files to systemd user services folder
+service: copy_to_PATH make_service_out_dir # Copy service/timer files to systemd user services folder
 	# Make sure the actual timer and service files exist, not just the templates
 	if [[ ! -f "./atlas2.timer" || ! -f "./atlas2.service" ]]; then \
 		echo "[!] atlas2.timer and atlas2.service must be present, not just the templates!"; \
@@ -33,6 +34,12 @@ service: copy_to_PATH # Copy service/timer files to systemd user services folder
 	sudo systemctl enable atlas2.timer
 	sudo systemctl start atlas2.timer
 	echo "[+] Enabled ATLAS2 Systemd timer (2:00 AM EST Daily)"
+
+make_service_out_dir:
+	if [ ! -d "$(SERVICE_OUTPUT_DIR)" ]; then \
+		sudo mkdir $(SERVICE_OUTPUT_DIR); \
+		echo "[+] Created directory for service outputs at $(SERVICE_OUTPUT_DIR)"; \
+	fi
 
 build: make_venv # Build Python project in venv
 	source $(BIN_DIR)/activate && sudo $(BIN_DIR)/pip install .

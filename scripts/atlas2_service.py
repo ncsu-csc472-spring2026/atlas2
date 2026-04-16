@@ -8,6 +8,7 @@ import subprocess # To run atlas2 with command-line arguments
 import ast # To get literal List objects from CSV
 import argparse
 import tarfile # For zipping output
+from datetime import datetime # For date/time filenames for .tar files
 
 # Constants defining indeces of the PSU's ID, name, domain, URL (unused), and IP blocks in the master PSU CSV
 ID_IDX = 0
@@ -19,14 +20,14 @@ BLOCKS_IDX = 4
 DEFAULT_MODE = 0o755
 
 # Maximum number of ATLAS2 scans capable of running concurrently
-MAX_THREADS = 10
+MAX_THREADS = 8
 
 # Command-line arguments
 parser = argparse.ArgumentParser()
 parser.add_argument("psu_list", help="Path for the Master PSU list file")
-parser.add_argument("output", help="Directory path for the output folders for each PSU will be placed")
+parser.add_argument("output", help="Base path for the output. PSU folders will be placed in [output]/psus")
 parser.add_argument("-t", "--threads", help="Number of threads to run the program on", nargs="?", type=int, default=MAX_THREADS)
-parser.add_argument("-f", "--tarfile", help="Output tarfile where all output directories will be archived to (e.g. /home/username/atlas2.tar)", nargs="?", default="")
+parser.add_argument("-f", "--tarfile", help="Enables tarfile output to [output] directory with name 'atlas2_{date/time}.tar'", action="store_true")
 parser.add_argument("-b", "--blocklist", help="Master blocklist file for the ATLAS Crawler", nargs="?", default="")
 
 args = parser.parse_args()
@@ -63,7 +64,13 @@ def main():
         # ID, NAME, DOMAIN, URL (unused), ASSIGNED IP BLOCK ARRAY
         for row in master_reader: # Each PSU
             full_name = '_'.join([row[ID_IDX], row[NAME_IDX]]) # For use in file/folder storage
-            full_dir = os.path.join(args.output, full_name) # /usr/atlas2/{ID}_{NAME}
+            psus_output = os.path.join(args.output, "psus") # [output]/psus/
+            
+            # If running for the first time, make the [output]/psus/ directory 
+            if (not os.path.exists(psus_output)):
+                os.mkdir(psus_output, DEFAULT_MODE)
+
+            full_dir = os.path.join(psus_output, full_name) # /etc/atlas2/psus/{ID}_{NAME}
 
             # Get List of IP blocks from master list, literally evaluating the column as a List
             blocks_list = ast.literal_eval(row[BLOCKS_IDX])
@@ -111,15 +118,20 @@ def main():
 
     # Save tarfile if tarfile flag is set
     if args.tarfile:
-        print(f"[*] Writing Tarfile to {args.tarfile}")
-        # Delete old tarfile if it exists
-        if os.path.exists(args.tarfile):
-            print(f"[!] {args.tarfile} already exists, removing")
-            os.remove(args.tarfile)
+
+        dt = datetime.now().strftime("%m-%d-%Y-%H%M%S")
+        tarfilename = f"atlas2_{dt}.tar"
+        tarfilepath = os.path.join(args.output, tarfilename)
+
+        print(f"[*] Writing Tarfile to {tarfilepath}")
+        # Delete old tarfile if it exists (unlikely!)
+        if os.path.exists(tarfilepath):
+            print(f"[!] {tarfilepath} already exists, removing")
+            os.remove(tarfilepath)
         # Open new tarfile and add the output directory to it, then zip it (gzip compression)
-        with tarfile.open(f"{args.tarfile}", "w:gz") as tar:
-            tar.add(args.output, recursive=True)
-            print(f"[+] Tarfile written to {args.tarfile}")
+        with tarfile.open(tarfilepath, "w:gz") as tar: # /etc/atlas2/atlas2_XXX-123.tar
+            tar.add(psus_output, recursive=True) # Add ./psus/*
+            print(f"[+] Tarfile written to {tarfilepath}")
 
 if __name__ == "__main__":
     main()
