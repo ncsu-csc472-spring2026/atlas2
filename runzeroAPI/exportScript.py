@@ -4,7 +4,7 @@ import requests
 import sys
 
 # === Configuration ===
-RUNZERO_ORG_TOKEN = "OTBE19B320FC165EB9DC991ED378AC"
+RUNZERO_ORG_TOKEN = ""
 
 URL = "https://console.runzero.com/api/v1.0/export/org/assets.csv"
 
