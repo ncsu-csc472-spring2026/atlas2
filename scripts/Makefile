@@ -53,3 +53,14 @@ make_venv: print_banner # Create Python venv if one does not already exist in "/
 
 print_banner: # Print a pretty banner from banner.txt
 	sed "s/\[VERSION\!\]/$$(printf '%-10s' $$(grep -Po '(?<=version = \")[^\"]*' pyproject.toml))/g" banner.txt
+
+clean:
+	if [ -f "/usr/bin/atlas2" ]; then sudo rm /usr/bin/atlas2; fi
+	if [ -f "/usr/bin/atlas2_service" ]; then sudo rm /usr/bin/atlas2_service; fi
+	if [ -d "/usr/lib/atlas2" ]; then sudo rm -r /usr/lib/atlas2; fi
+	if [ -d "/etc/atlas2" ]; then sudo rm -r /etc/atlas2; fi
+	if [ -f "/etc/systemd/system/atlas2.service" ]; then sudo rm /etc/systemd/system/atlas2.service; fi
+	if [ -f "/etc/systemd/system/atlas2.timer" ]; then sudo rm /etc/systemd/system/atlas2.timer; fi
+	sudo systemctl daemon-reload
+	echo "[-] Removed all installed ATLAS2 files and directories, reloaded services"
+
