@@ -29,6 +29,8 @@ parser.add_argument("output", help="Base path for the output. PSU folders will b
 parser.add_argument("-t", "--threads", help="Number of threads to run the program on", nargs="?", type=int, default=MAX_THREADS)
 parser.add_argument("-f", "--tarfile", help="Enables tarfile output to [output] directory with name 'atlas2_{date/time}.tar'", action="store_true")
 parser.add_argument("-b", "--blocklist", help="Master blocklist file for the ATLAS Crawler", nargs="?", default="")
+parser.add_argument('-c', '--csv', help='Enables .csv exporting for all PSUs', action='store_true')
+parser.add_argument('-r', '--runzero', help='Enables export to runZero (Must have API Token filled in .env file to work!)', action='store_true')
 
 args = parser.parse_args()
 
@@ -65,8 +67,8 @@ def main():
         for row in master_reader: # Each PSU
             full_name = '_'.join([row[ID_IDX], row[NAME_IDX]]) # For use in file/folder storage
             psus_output = os.path.join(args.output, "psus") # [output]/psus/
-            
-            # If running for the first time, make the [output]/psus/ directory 
+
+            # If running for the first time, make the [output]/psus/ directory
             if (not os.path.exists(psus_output)):
                 os.mkdir(psus_output, DEFAULT_MODE)
 
@@ -84,9 +86,8 @@ def main():
                             row[NAME_IDX],
                             row[DOMAIN_IDX],
                             blocks_str,
-                            "-c",
                             "-f", full_dir
-                           ]
+                          ]
 
             # If global blocklist is defined...
             if args.blocklist:
@@ -96,6 +97,14 @@ def main():
                 else: # If blocklist path is invalid, print error and quit
                     print(f"[!] Invalid blocklist path!")
                     sys.exit(1)
+
+            # Enables CSV exporting if flag is set
+            if args.csv:
+                process_str.append("-c")
+
+            # Enables runZero exporting if flag is set
+            if args.runzero:
+                process_str.append("-r")
 
             # If the full PSU path does not exist, create it
             if not os.path.exists(full_dir):

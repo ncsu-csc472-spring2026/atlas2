@@ -9,7 +9,7 @@
 *                                          *
 * Version: [VERSION!]                      *
 *                                          *
-* Created by The NCSU CSC472 ATLAS2 Team:  *
+* Created by the NCSU CSC472 ATLAS2 Team:  *
 *                                          *
 * Perry Ellis, Camden Kells, Jack Lawlor,  *
 * Wesley Matthews, Dhruvi Shah             *
