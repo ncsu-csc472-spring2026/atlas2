@@ -1,7 +1,7 @@
 [build-system]
 requires = ["setuptools>=68.0", "wheel"]
 build-backend = "setuptools.build_meta"
- 
+
 [project]
 name = "atlas2"
 version = "0.1.0"
@@ -18,11 +18,16 @@ classifiers = [
     "Operating System :: POSIX :: Linux",
 ]
 dependencies = [
+  "python-dotenv>=1.2.2",
+  "requests>=2.28.0",
 ]
- 
+
 [project.scripts]
-atlas2 = "atlas2:main"
-atlas2_service = "atlas2_service:main"
- 
-[tool.setuptools]
-py-modules = ["atlas2", "atlas2_csv", "atlas2_service"]
+atlas2 = "atlas2.atlas2:main"
+atlas2_service = "atlas2.atlas2_service:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+"atlas2" = [".env"]

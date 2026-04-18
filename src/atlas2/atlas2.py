@@ -15,47 +15,10 @@ import argparse  # For command-line argument parsing
 import json  # For JSON object export
 import datetime as dt  # For timestamps (see strftime())
 import socket  # For DNS resolution
-import atlas2_csv as csv # For CSV Exporting
+from . import atlas2_csv as csv # For CSV Exporting
+from . import atlas2_runzero as rz # For exporting to runZero
 import ipaddress
 
-
-"""
-Resolve crawler output into a lsit of IPs that can be cosntructed into Assets later
-"""
-def crawl2ip(input_file):
-    url_re = re.compile(r"https?://[^\s/]+")
-    ip_re = re.compile(r"^(\d{1,3}\.){3}\d{1,3}$")
-
-    domains = []
-    with open(input_file) as f:
-        for line in f:
-            line = line.strip()
-            if not line:
-                continue
-            match = url_re.match(line)
-            if match:
-                url = match.group(0)
-                domain = url.split("//")[1].split("/")[0]
-                domains.append(domain)
-
-    ip_to_domains = {}
-    for domain in domains:
-        try:
-            addr_info = socket.getaddrinfo(domain, None, socket.AF_INET)
-            for info in addr_info:
-                ip = info[4][0]
-                if ip_re.match(ip):
-                    if ip not in ip_to_domains:
-                        ip_to_domains[ip] = []
-                    ip_to_domains[ip].append(domain)
-        except (socket.gaierror, socket.herror, UnicodeEncodeError):
-            print(f"[!] Error resolving {domain}", file=sys.stderr)
-            pass
-
-    for ip in ip_to_domains:
-        ip_to_domains[ip] = list(set(ip_to_domains[ip]))
-
-    return sorted(ip_to_domains.keys()), ip_to_domains
 
 
 DOMAIN_RE = re.compile(
@@ -105,7 +68,11 @@ parser.add_argument(
     help="Max concurrent sockets (default: 50)",
 )
 parser.add_argument(
-    "-d", "--depth", type=int, default=3, help="Max crawl depth (default: 3)"
+    "-d", 
+    "--depth", 
+    type=int, 
+    default=3, 
+    help="Max crawl depth (default: 3)"
 )
 parser.add_argument(
     "-m",
@@ -117,10 +84,11 @@ parser.add_argument(
 parser.add_argument(
     "-o", "--output", default=None, help="Output file for crawler results"
 )
-parser.add_argument('block', help='Allows for input of comma seperated IP blocks (ex.152.26.20.64/26,152.26.23.0/25)', nargs='?', default='')
+parser.add_argument('block', help='Allows for input of comma seperated IP blocks (ex. 152.26.20.64/26,152.26.23.0/25)', nargs='?', default='')
 parser.add_argument('-i', '--interactive', help='Interactive mode: program will prompt you to input PSU ID and Domain', action='store_true')
 parser.add_argument('-c', '--csv', help='Enables .csv exporting to "{psu_id}_{psu_name}.csv"', action='store_true')
 parser.add_argument('-f', '--folder', help='Path to directory where all output files will be stored', nargs='?', default='')
+parser.add_argument('-r', '--runzero', help='Enables export to runZero (Must have API Token filled in .env file to work!)', action='store_true')
 
 args = parser.parse_args()
 
@@ -153,6 +121,46 @@ class PSU:
         self.asset_count = asset_count          # Number of assets found for this PSU
         self.blocks = blocks                    # List of IP blocks to check
         self.assets = assets                    # List of Asset objects found for this PSU
+
+
+"""
+Resolve crawler output into a lsit of IPs that can be cosntructed into Assets later
+"""
+def crawl2ip(input_file):
+    url_re = re.compile(r"https?://[^\s/]+")
+    ip_re = re.compile(r"^(\d{1,3}\.){3}\d{1,3}$")
+
+    domains = []
+    with open(input_file) as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            match = url_re.match(line)
+            if match:
+                url = match.group(0)
+                domain = url.split("//")[1].split("/")[0]
+                domains.append(domain)
+
+    ip_to_domains = {}
+    for domain in domains:
+        try:
+            addr_info = socket.getaddrinfo(domain, None, socket.AF_INET)
+            for info in addr_info:
+                ip = info[4][0]
+                if ip_re.match(ip):
+                    if ip not in ip_to_domains:
+                        ip_to_domains[ip] = []
+                    ip_to_domains[ip].append(domain)
+        except (socket.gaierror, socket.herror, UnicodeEncodeError):
+            print(f"[!] Error resolving {domain}", file=sys.stderr)
+            pass
+
+    for ip in ip_to_domains:
+        ip_to_domains[ip] = list(set(ip_to_domains[ip]))
+
+    return sorted(ip_to_domains.keys()), ip_to_domains
+
 
 """
 Returns true if the passed string is a domain, otherwise false
@@ -415,8 +423,8 @@ def main():
     # Holds list of blocks input by the user
     blocks = []
 
-    # Directory where all output files will be stored (filled by args.folder)
-    folder = ""
+    # Directory where all output files will be stored (filled by args.folder, current dir by default)
+    folder = "./"
 
     # If interactive mode, ask user for inputs
     if args.interactive:
@@ -532,12 +540,26 @@ def main():
     # Create PSU object
     psu_object = PSU(name, psu, root_domain, len(all_assets), block_string_list, all_assets)
 
+    # Always export PSU object as json
+    export_json_psu(psu_object, folder)
+
     # CSV export functions if the flag is set
     if args.csv:
         csv.export_psu_as_csv(psu_object, folder)
 
-    # Always export PSU object as json
-    export_json_psu(psu_object, folder)
+    # runZero exporting using ATLAS2 runzero module, only adds assets to sites if they are not in their assigned IP blocks
+    if args.runzero:
+        try:
+            rz.add_assets_to_site(
+                '_'.join([psu_object.id, psu_object.name]), # PSU name
+                [asset.ip for asset in psu_object.assets if not asset.in_block], # IP of each asset in PSU object
+                [str(asset.domains) for asset in psu_object.assets if not asset.in_block], # Domains of each asset in PSU object
+                create_if_missing=True # Create sites in runZero if they don't exist
+                )
+        except ValueError as e: # Error from runZero module, print it to stderr
+            print(e, file=sys.stderr)
+
+    return
 
 if __name__ == "__main__":
     main()
