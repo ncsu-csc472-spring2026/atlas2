@@ -1,9 +1,15 @@
-#!/usr/bin/env python3
 """
 atlas2.py
 
-Prompt for PSU name and root domain, run theHarvester, pipe output to harvesthelper,
-and save harvesthelper's output to harvesthelper.txt
+Runs theHarvester and the ATLAS Web Crawler over the supplied PSU domain
+
+Caution should be used when using this script manually, you might create duplicate
+files or runZero sites if the input PSU ID or Names are mistyped.
+
+Outputs to JSON by default, CSV by request (-c flag), and the runZero org
+specified in .env if enabled (-r flag)
+
+Use the -h flag for more help on arguments and other flags
 """
 
 import re  # Regex parser
@@ -18,8 +24,6 @@ import socket  # For DNS resolution
 from . import atlas2_csv as csv # For CSV Exporting
 from . import atlas2_runzero as rz # For exporting to runZero
 import ipaddress
-
-
 
 DOMAIN_RE = re.compile(
     r"^(?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?\.)+[A-Za-z]{2,}$"

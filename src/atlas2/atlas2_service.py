@@ -1,12 +1,10 @@
-#!/usr/bin/python3
-
 import sys # Arguments and exiting
 import os # For file/folder creation
 import threading # For concurrent running instances of atlas2.py
 import csv # To read master PSU list
 import subprocess # To run atlas2 with command-line arguments
 import ast # To get literal List objects from CSV
-import argparse
+import argparse # For argument parsing and usage 
 import tarfile # For zipping output
 from datetime import datetime # For date/time filenames for .tar files
 
@@ -28,6 +26,7 @@ parser.add_argument("psu_list", help="Path for the Master PSU list file")
 parser.add_argument("output", help="Base path for the output. PSU folders will be placed in [output]/psus")
 parser.add_argument("-t", "--threads", help="Number of threads to run the program on", nargs="?", type=int, default=MAX_THREADS)
 parser.add_argument("-f", "--tarfile", help="Enables tarfile output to [output] directory with name 'atlas2_{date/time}.tar'", action="store_true")
+parser.add_argument("-a", "--allowlists", help="Directory where all of the ATLAS web crawler allowlists for each PSU are located", nargs="?", default="")
 parser.add_argument("-b", "--blocklist", help="Master blocklist file for the ATLAS Crawler", nargs="?", default="")
 parser.add_argument('-c', '--csv', help='Enables .csv exporting for all PSUs', action='store_true')
 parser.add_argument('-r', '--runzero', help='Enables export to runZero (Must have API Token filled in .env file to work!)', action='store_true')
@@ -56,8 +55,10 @@ def run_atlas2(process_str: list, full_dir: str, full_name: str):
 Main function, creates threads out of all master PSU list file rows and waits for them to finish
 """
 def main():
-
     threads = [] # List of thread worker, one for each PSU
+    allowlists = [] # List of atlas_crawler allowlists for each PSU
+    if args.allowlists:
+        allowlists = os.listdir(args.allowlists)
 
     # Context manager, open file pointed to by psu_list argument
     with open(args.psu_list, "r", encoding="UTF-8") as master_list:
@@ -89,13 +90,24 @@ def main():
                             "-f", full_dir
                           ]
 
-            # If global blocklist is defined...
+            # If allowlist crawler directory is specified...
+            if args.allowlists:
+                # Find the first allowlist file who's name starts with this PSU's ID
+                allowlist = next((al for al in allowlists if al.startswith(row[ID_IDX])), None)
+                if allowlist:
+                    # Extend process_str with allowlist flag and file path
+                    process_str.extend(["-a", os.path.join(args.allowlists, allowlist)])
+                    print(f"[+] Loaded crawler allowlist for {row[NAME_IDX]}")
+                else:
+                    print(f"[!] No allowlist for {row[NAME_IDX]}", file=sys.stderr)
+
+            # If global crawler blocklist is defined...
             if args.blocklist:
                 # Make sure the path is valid first
                 if os.path.exists(args.blocklist):
                     process_str.extend(["-b", args.blocklist]) # Append flag + arg to the atlas2 command-line arguments
                 else: # If blocklist path is invalid, print error and quit
-                    print(f"[!] Invalid blocklist path!")
+                    print(f"[!] Invalid blocklist path!", file=sys.stderr)
                     sys.exit(1)
 
             # Enables CSV exporting if flag is set
@@ -121,7 +133,7 @@ def main():
     # Join each thread and print how many are left
     i = len(threads)
     for t in threads:
-        print(f"[-] Threads Remaining: {i}", file=sys.stdout)
+        print(f"[-] Threads Remaining: {i}")
         t.join()
         i -= 1
 
