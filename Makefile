@@ -64,7 +64,7 @@ print_banner: # Print a pretty banner from banner.txt
 	sed "s/\[VERSION\!\]/$$(printf '%-10s' $$(grep -Po '(?<=version = \")[^\"]*' pyproject.toml))/g" $(BANNER_FILE)
 
 install_theHarvester: # Install theHarvester through apt if not present on system
-	if ! apt show theharvester &> /dev/null; then \
+	if ! dpkg-query -s theharvester 2>/dev/null | grep -q "ok installed"; then \
 		echo "[+] Installing theHarvester through apt"; \
 		sudo apt install theharvester; \
 	fi
@@ -79,12 +79,12 @@ crawler_bin: # Create bin directory in atlas-crawler
 	mkdir -p $(CRAWLER_BIN)
 
 clone_crawler: # Clone atlas-crawler repo into crawler dir
-	if [ ! -d $(CRAWLER_SRC) ]; then \
-		git clone $(CRAWLER_REPO) \
+	if [ ! -d "$(CRAWLER_SRC)" ]; then \
+		git clone $(CRAWLER_REPO); \
 	fi
 
 install_libcurl: # Installs libcurl4-openssl-dev package if not present, needed for crawler
-	if ! apt show libcurl4-openssl-dev &> /dev/null; then \
+	if ! dpkg-query -s libcurl4-openssl-dev 2>/dev/null | grep -q "ok installed"; then \
 		echo "[+] Installing libcurl4-openssl-dev through apt"; \
 		sudo apt install libcurl4-openssl-dev; \
 	fi
