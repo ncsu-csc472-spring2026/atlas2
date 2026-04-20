@@ -50,7 +50,7 @@ make_service_out_dir:
 		echo "[+] Created directory for service outputs at $(SERVICE_OUTPUT_DIR)"; \
 	fi
 
-build: print_banner make_venv install_theHarvester # Build Python project in venv
+build: print_banner make_venv install_theHarvester build_crawler # Build Python project in venv
 	source $(BIN_DIR)/activate && sudo $(BIN_DIR)/pip install .
 	echo "[+] Built ATLAS2 scripts in $(BIN_DIR)"
 
