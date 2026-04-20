@@ -210,6 +210,8 @@ __marimo__/
 # Export Files
 *.json
 *.csv
+out/*
+out/
 
 # Service/Timer files (NOT TEMPLATES)
 *.timer
