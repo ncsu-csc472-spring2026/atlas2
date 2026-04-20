@@ -207,6 +207,9 @@ marimo/_lsp/
 __marimo__/
 
 ### ATLAS2
+# atlas-crawler repo
+atlas-crawler/
+
 # Export Files
 *.json
 *.csv
