@@ -11,7 +11,7 @@ SRC_DIR := ./src/atlas2
 CRAWLER_REPO := https://github.com/ncsu-csc472-spring2026/atlas-crawler/
 CFLAGS := -ggdb -Wall -Wextra
 CRAWLER_SRC := ./atlas-crawler
-CRAWLER_BIN := $(CRAWLER_SRC)/bin/
+CRAWLER_BIN := $(CRAWLER_SRC)/bin
 CC := gcc
 LDLIBS := -lcurl
 
@@ -70,12 +70,12 @@ install_theHarvester: # Install theHarvester through apt if not present on syste
 	fi
 
 # Builds crawler and placed binary in /usr/bin
-build_crawler: install_libcurl clone_crawler $(CRAWLER_SRC)/atlas_crawler.c | $(CRAWLER_BIN):
-	$(CC) $(CFLAGS) $(CRAWLER_SRC)/atlas_crawler.c -o $(BIN)atlas_crawler $(LDLIBS)
+build_crawler: install_libcurl clone_crawler crawler_bin
+	$(CC) $(CFLAGS) $(CRAWLER_SRC)/atlas_crawler.c -o $(CRAWLER_BIN)/atlas_crawler $(LDLIBS)
 	sudo cp $(CRAWLER_BIN)/atlas_crawler /usr/bin/atlas_crawler
 	echo "[+] Built and copied ATLAS Crawler binary to /usr/bin"
 
-$(CRAWLER_BIN): # Create bin directory in atlas-crawler
+crawler_bin: # Create bin directory in atlas-crawler
 	mkdir -p $(CRAWLER_BIN)
 
 clone_crawler: # Clone atlas-crawler repo into crawler dir
