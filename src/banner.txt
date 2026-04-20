@@ -5,7 +5,8 @@
 *   / ___ \| | | |___ / ___ \ ___) / __/   *
 *  /_/   \_\_| |_____/_/   \_\____/_____|  *
 *                                          *
-* ATLAS2 Enchanced Asset Discovery Tool    *
+*            Asset Tracking and            *
+*        Lifecycle Analysis System 2       *
 *                                          *
 * Version: [VERSION!]                      *
 *                                          *
