@@ -1,9 +1,10 @@
 # ATLAS2: Asset Tracking and Lifecycle Analysis System 2
 
 ## Installation:
-**NOTE: This installation only works on Debian-based (Kali) linux distros that use `apt` as their package manager!**
+### **NOTE: This installation only works on Debian-based (or Kali) Linux distros that use `apt` as their package manager!**
 
-1. Clone repository
+1. Clone repository \
+    `git clone https://github.com/ncsu-csc472-spring2026/atlas2.git --depth 1`
 
 2. Configure you local variables environment variables
     - Nagivate to `src/atlas2/`
