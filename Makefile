@@ -50,7 +50,7 @@ make_service_out_dir:
 		echo "[+] Created directory for service outputs at $(SERVICE_OUTPUT_DIR)"; \
 	fi
 
-build: print_banner make_venv install_theHarvester build_crawler # Build Python project in venv
+build: print_banner make_venv install_theHarvester crawler # Build Python project in venv
 	source $(BIN_DIR)/activate && sudo $(BIN_DIR)/pip install .
 	echo "[+] Built ATLAS2 scripts in $(BIN_DIR)"
 
@@ -70,7 +70,7 @@ install_theHarvester: # Install theHarvester through apt if not present on syste
 	fi
 
 # Builds crawler and placed binary in /usr/bin
-build_crawler: install_libcurl clone_crawler crawler_bin
+crawler: install_libcurl clone_crawler crawler_bin
 	$(CC) $(CFLAGS) $(CRAWLER_SRC)/atlas_crawler.c -o $(CRAWLER_BIN)/atlas_crawler $(LDLIBS)
 	sudo cp $(CRAWLER_BIN)/atlas_crawler /usr/bin/atlas_crawler
 	echo "[+] Built and copied ATLAS Crawler binary to /usr/bin"
