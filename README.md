@@ -124,3 +124,18 @@ options:
                         in .env file to work!)
 ```
 
+## Configuring theHarvester API Keys
+theHarvester has a few optional search engines that are not set up by default and require API keys. See [theHarvester GitHub repository](https://github.com/laramies/theHarvester#modules-that-require-an-api-key) for more information about which seach engines are avaiable and their costs. Some search engines are free to sign up for, but usage may be limited.
+
+
+API keys for theHarvester are stored in
+```bash
+/etc/theHarvester/api-keys.yaml
+```
+Edit this file and add your API keys in the respective search engines, for example:
+```bash
+brave:
+    key: BU8t38jHiuhfa4H9l89gh98PFj2
+```
+
+
