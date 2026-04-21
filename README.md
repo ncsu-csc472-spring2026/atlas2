@@ -1,6 +1,6 @@
 # ATLAS2: Asset Tracking and Lifecycle Analysis System 2
 
-## Installation:
+## Installation
 ### **NOTE: This installation only works on Debian-based (or Kali) Linux distros that use `apt` as their package manager!**
 
 1. Clone repository \
@@ -38,7 +38,7 @@
     To remove all installed files and directories, run: \
     `make clean`
 
-## Usage:
+## Usage
 
 To run ATLAS2 on a single PSU, use `atlas2`:
 
