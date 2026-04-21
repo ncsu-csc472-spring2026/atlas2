@@ -3,7 +3,7 @@
 ## Installation
 ### **NOTE: This installation only works on Debian-based (or Kali) Linux distros that use `apt` as their package manager!**
 
-1. Clone repository \
+1. Clone repository
     ```bash
     git clone https://github.com/ncsu-csc472-spring2026/atlas2.git --depth 1
     ```
@@ -11,13 +11,13 @@
 2. Configure you local variables environment variables
     - Nagivate to `src/atlas2/`
     - Configure your `.env` file:
-        1. Copy the `.env.template` file to `.env` \
+        1. Copy the `.env.template` file to `.env`
         ```bash
         cp .env.template .env
         ```
         2. Edit the `RUNZERO_API_KEY` parameter to your RunZero organization key (**Note: Use a separate runZero organization**)
     - Configure your `.service` and `.timer` file *(Only applicable if you plan on running ATLAS2 automatically on a schedule)*
-        1. Copy both `atlas2.service.template` and `atlas2.timer.template` to `atlas2.service` and `atlas2.timer` respectively \
+        1. Copy both `atlas2.service.template` and `atlas2.timer.template` to `atlas2.service` and `atlas2.timer` respectively
         ```bash
         cp atlas2.service.template atlas2.service; cp atlas2.timer.template atlas2.timer
         ```
@@ -32,22 +32,21 @@
             2. Save the file and exit
     - Return to the root repository directory
 
-3. For a full install, including Systemd service/timer enabling, run: \
+- For a full install, including Systemd service/timer enabling, run:
     ```bash
     make service
     ```
-
 
     This enables the Systemd timer to run ATLAS2 on all PSUs as often as set in the `atlas2.timer` file.
     The time values can be edited and `make service` can be rerun to replace the old files and restart the timer
     **The service outputs to /etc/atlas2 as timestamped, compressed .tar files by default**
 
-    Otherwise, for a normal system-wide CLI tool install without using the Systemd service, simply run: \
+- Otherwise, for a normal system-wide CLI tool install without using the Systemd service, simply run:
     ```bash
     make
     ```
 
-    To remove all installed files and directories, run: \
+- To remove all installed files and directories, run:
     ```bash
     make clean
     ```
