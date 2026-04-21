@@ -213,7 +213,6 @@ atlas-crawler/
 # Export Files
 *.json
 *.csv
-out/*
 out/
 
 # Service/Timer files (NOT TEMPLATES)
