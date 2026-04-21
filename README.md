@@ -4,17 +4,23 @@
 ### **NOTE: This installation only works on Debian-based (or Kali) Linux distros that use `apt` as their package manager!**
 
 1. Clone repository \
-    `git clone https://github.com/ncsu-csc472-spring2026/atlas2.git --depth 1`
+    ```bash
+    git clone https://github.com/ncsu-csc472-spring2026/atlas2.git --depth 1
+    ```
 
 2. Configure you local variables environment variables
     - Nagivate to `src/atlas2/`
     - Configure your `.env` file:
         1. Copy the `.env.template` file to `.env` \
-        `$ cp .env.template .env`
+        ```bash
+        cp .env.template .env
+        ```
         2. Edit the `RUNZERO_API_KEY` parameter to your RunZero organization key (**Note: Use a separate runZero organization**)
     - Configure your `.service` and `.timer` file *(Only applicable if you plan on running ATLAS2 automatically on a schedule)*
         1. Copy both `atlas2.service.template` and `atlas2.timer.template` to `atlas2.service` and `atlas2.timer` respectively \
-        `$ cp atlas2.service.template atlas2.service; cp atlas2.timer.template atlas2.timer`
+        ```bash
+        cp atlas2.service.template atlas2.service; cp atlas2.timer.template atlas2.timer
+        ```
         2. Open `atlas2.service` in a text editor
             1. Replace `[PATH TO MASTER PSU CSV]` with an absolute path to the master PSU CSV file (master_psu_list.csv)
             2. Replace `[PATH TO ALLOWLISTS DIRECTORY]` with the absolute path to the directory containing allowlists for each PSU
@@ -27,20 +33,31 @@
     - Return to the root repository directory
 
 3. For a full install, including Systemd service/timer enabling, run: \
-    `make service` \
+    ```bash
+    make service
+    ```
+
+
     This enables the Systemd timer to run ATLAS2 on all PSUs as often as set in the `atlas2.timer` file.
     The time values can be edited and `make service` can be rerun to replace the old files and restart the timer
     **The service outputs to /etc/atlas2 as timestamped, compressed .tar files by default**
 
     Otherwise, for a normal system-wide CLI tool install without using the Systemd service, simply run: \
-    `make`
+    ```bash
+    make
+    ```
 
     To remove all installed files and directories, run: \
-    `make clean`
+    ```bash
+    make clean
+    ```
 
 ## Usage
 
-To run ATLAS2 on a single PSU, use `atlas2`:
+To run ATLAS2 on a single PSU, use:
+```bash
+atlas2
+```
 
 ```
 usage: atlas2 [-h] [-a ALLOWLIST] [-b BLOCKLIST] [-n CONCURRENCY] [-d DEPTH]
@@ -77,7 +94,10 @@ options:
                         in .env file to work!)
 ```
 
-To run ATLAS2 on a list of PSUs, use `atlas2_service`:
+To run ATLAS2 on a list of PSUs, use:
+```bash
+atlas2_service
+```
 
 ```
 usage: atlas2_service [-h] [-t [THREADS]] [-f] [-a [ALLOWLISTS]]
