@@ -29,6 +29,8 @@ copy_to_PATH: build # Install atlas2 and atlas2_service files into /usr/bin/
 	sudo ln -s $(BIN_DIR)/atlas2 /usr/bin/atlas2
 	sudo ln -s $(BIN_DIR)/atlas2_service /usr/bin/atlas2_service
 	echo "[+] Symlinked Python scripts to /usr/bin/"
+	sudo rm -r ./build
+	echo "[-] Cleaned up build/ directory"
 
 service: copy_to_PATH make_service_out_dir # Copy service/timer files to systemd user services folder
 	# Make sure the actual timer and service files exist, not just the templates
