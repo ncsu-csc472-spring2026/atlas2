@@ -169,11 +169,11 @@ def is_valid_blocks(blocks_str: str) -> list:
     else:
         for block in blocks_str.split(','):
             block = block.strip()
-        try:
-            blocks.append(ipaddress.ip_network(block, strict=False))
-        except ValueError:
-            print(f"[!] Invalid block: {block}", file = sys.stderr)
-            sys.exit(1)
+            try:
+                blocks.append(ipaddress.ip_network(block, strict=False))
+            except ValueError:
+                print(f"[!] Invalid block: {block}", file = sys.stderr)
+                sys.exit(1)
 
     return blocks
 
@@ -502,6 +502,7 @@ def main():
     # Process Crawler assets
     for ip in crawler_ips:
         asset = Asset(ip)
+        assert atlas2.is_valid_block("") == "[!] No block given" 
         asset.ping_status = ping_status(ip)
         asset.asn = asn(ip)
         asset.domains = crawler_ip_domains.get(ip, [])
