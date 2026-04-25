@@ -99,7 +99,7 @@ atlas2_service
 ```
 
 ```
-usage: atlas2_service [-h] [-t [THREADS]] [-f] [-a [ALLOWLISTS]]
+usage: atlas2_service [-h] [-t [THREADS]] [-f] [-a [ALLOWLIST]]
                       [-b [BLOCKLIST]] [-c] [-r]
                       psu_list output
 
@@ -114,8 +114,7 @@ options:
                         Number of threads to run the program on
   -f, --tarfile         Enables tarfile output to [output] directory with name
                         'atlas2_{date/time}.tar'
-  -a, --allowlists [ALLOWLISTS]
-                        Directory where all of the ATLAS web crawler
+  -a, --allowlist [ALLOWLIST]
                         allowlists for each PSU are located
   -b, --blocklist [BLOCKLIST]
                         Master blocklist file for the ATLAS Crawler
@@ -138,4 +137,53 @@ brave:
     key: BU8t38jHiuhfa4H9l89gh98PFj2
 ```
 
+## Output:
+The ATLAS2 system has several output options:
+    - JSON file (always and default)
+    - CSV file (-c/--csv flag)
+    - runZero API Import (-r/--runzero flag, requires .env setup)
+        - Only assets not in their PSU's assigned IP blocks are added to runZero
+
+### JSON Format:
+Each JSON file is a representation of a single PSU and all the assets in it.
+```json
+{
+    “name”: ”Example County Schools”,
+    “id”: “00A”,
+    “root_domain”: “example.k12.nc.us”
+    “asset_count”: number,
+    "blocks": [MCNC ASSIGNED IP BLOCKS],
+    “assets”: [
+        {
+            “ip”: “152.xx.xx.201”,
+            "in_block”: false|true, # Whether or not this asset is in its PSU's assigned IP block
+            “ping_status”: “UP”|”DOWN”, # Is this asset responding to pings
+            “asn”: “Cloudflare”,
+            “domains”: [“www.example.com”, “www3.example.com” ],
+            “source”: “tool used”,
+            “timestamp”: “YYYY-MM-DDTHH:mm:SS",
+            “comments”: “”
+        },
+        ...
+    ]
+}
+```
+
+### CSV
+Each CSV file is a list of assets for a single PSU. Each file has headers corresponding to each JSON asset's parameters. Assets from theHarvester are shown first, as they are the highest confidence assets with direct subdomains listed.
+
+## Creating a Master PSU List File (eddie_parser.py)
+To create a master PSU list from the EDDIE database (in case it needs to be remade):
+1. Export an "Customer Report - School" CSV file from [EDDIE](https://apps.schools.nc.gov/eddie)
+    - Select only the following columns by clicking `Actions -> Select Columns`:
+        PSU Number, PSU Name, Principal Email, and URL School Address
+    - Click "Apply"
+    - Export by clicking "Actions -> Download -> Download"
+2. Upload the raw EDDIE data to the ATLAS2 Server through any means
+3. Obtain the assigned IP blocks file from runZero (provided in hand-off package)
+4. Run eddie_parser.py with the EDDIE CSV file and the IP Blocks CSV File as arguments:
+    ```bash
+    ./eddie_parser.py [EDDIE CSV] [IP BLOCKS CSV]
+    ```
+5. The file exports to `master_psu_list.csv` and can be used with atlas2_service
 
