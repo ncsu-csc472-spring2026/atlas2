@@ -146,7 +146,7 @@ The ATLAS2 system has several output options:
 
 ### JSON Format:
 Each JSON file is a representation of a single PSU and all the assets in it.
-```json
+```txt
 {
     “name”: ”Example County Schools”,
     “id”: “00A”,
@@ -169,7 +169,7 @@ Each JSON file is a representation of a single PSU and all the assets in it.
 }
 ```
 
-### CSV
+### CSV:
 Each CSV file is a list of assets for a single PSU. Each file has headers corresponding to each JSON asset's parameters. Assets from theHarvester are shown first, as they are the highest confidence assets with direct subdomains listed.
 
 ## Creating a Master PSU List File (eddie_parser.py)
