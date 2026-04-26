@@ -146,7 +146,7 @@ def main():
             os.remove(tarfilepath)
         # Open new tarfile and add the output directory to it, then zip it (gzip compression)
         with tarfile.open(tarfilepath, "w:gz") as tar: # /etc/atlas2/atlas2_XXX-123.tar
-            tar.add(psus_output, recursive=True) # Add ./psus/*
+            tar.add(psus_output, recursive=True, arcname="psus") # Add ./psus/*
             print(f"[+] Tarfile written to {tarfilepath}")
 
 if __name__ == "__main__":
