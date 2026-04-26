@@ -84,6 +84,7 @@ clone_crawler: # Clone atlas-crawler repo into crawler dir
 	if [ ! -d "$(CRAWLER_SRC)" ]; then \
 		git clone $(CRAWLER_REPO); \
 	fi
+	git -C $(CRAWLER_SRC) pull # Update Crawler repo before building
 
 install_libcurl: # Installs libcurl4-openssl-dev package if not present, needed for crawler
 	if ! dpkg-query -s libcurl4-openssl-dev 2>/dev/null | grep -q "ok installed"; then \

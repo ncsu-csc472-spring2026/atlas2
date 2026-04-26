@@ -63,7 +63,6 @@ parser.add_argument(
     default="blocklist.txt",
     help="Blocklist file for crawler (default: blocklist.txt)",
 )
-# TODO: fix later
 parser.add_argument(
     "-n",
     "--concurrency",
@@ -101,7 +100,7 @@ args = parser.parse_args()
 class Asset:
     def __init__(self, ip):
         self.ip = ip  # Asset IP address
-        self.in_block = False  # Whether or not the IP is in the MCNC block for the supplied PSU (TODO: Implement check for this)
+        self.in_block = False  # Whether or not the IP is in the MCNC block for the supplied PSU
         self.ping_status = "DOWN"  # Is this asset responding to pings? Default = DOWN
         self.asn = ""  # ASN this IP belongs to
         self.domains = []  # List of domains associated with this IP

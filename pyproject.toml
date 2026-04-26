@@ -11,7 +11,10 @@ requires-python = ">=3.8"
 license = { text = "" }
 authors = [
     { name = "Perry Ellis", email = "perrydellis37@gmail.com" },
-    # TODO: FILL IN REST OF NAMES
+    { name = "Camden Kells", email = "cmkells@ncsu.edu" },
+    { name = "Jack Lawlor", email = "jclawlor@ncsu.edu" },
+    { name = "Wesley Matthews", email = "wcmatth3@ncsu.edu" },
+    { name = "Dhruvi Shah", email = "dbshah6@ncsu.edu" },
 ]
 keywords = []
 classifiers = [

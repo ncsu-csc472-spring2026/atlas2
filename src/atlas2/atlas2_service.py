@@ -78,7 +78,7 @@ def main():
             blocks_str = ','.join(blocks_list) if blocks_list else ""
 
             # String List for the atlas2 program and arguments
-            # TODO: Add crawler arguments (allowlist, blocklist, depth, etc.)
+            # Craler uses default arguments defined in atlas2.py
             process_str = [ "atlas2",
                             row[ID_IDX],
                             row[NAME_IDX],
