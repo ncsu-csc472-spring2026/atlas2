@@ -5,7 +5,8 @@ ConditionPathExists=/etc/atlas2
 [Service]
 Type=oneshot
 ExecStart=/usr/bin/atlas2_service [PATH TO MASTER PSU CSV] /etc/atlas2 \
-  -t 8 -f -c -r \
+  -t 8 \
+  -f -c -r \
   -a [PATH TO MASTER CRAWLER ALLOWLIST] \
   -b [PATH TO MASTER CRAWLER BLOCKLIST]
 
