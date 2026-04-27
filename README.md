@@ -1,5 +1,4 @@
-#	source $(BIN_DIR)/activate && sudo $(BIN_DIR)/pip install .
- ATLAS2: Asset Tracking and Lifecycle Analysis System 2
+ATLAS2: Asset Tracking and Lifecycle Analysis System 2
 
 ## Installation
 ### **NOTE: This installation only works on Debian-based (or Kali) Linux distros that use `apt` as their package manager!**
