@@ -32,6 +32,9 @@ copy_to_PATH: build # Install atlas2 and atlas2_service files into /usr/bin/
 	sudo rm -r ./build
 	echo "[-] Cleaned up build/ directory"
 
+test: copy_to_PATH # Run PyTest after build
+		source $(BIN_DIR)/activate && python -m pytest $(VENV_DIR)/lib
+
 service: copy_to_PATH make_service_out_dir # Copy service/timer files to systemd user services folder
 	# Make sure the actual timer and service files exist, not just the templates
 	if [[ ! -f "$(SRC_DIR)/atlas2.timer" || ! -f "$(SRC_DIR)/atlas2.service" ]]; then \

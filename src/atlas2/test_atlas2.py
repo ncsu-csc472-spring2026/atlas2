@@ -1,5 +1,5 @@
 import unittest
-import atlas2
+from . import atlas2
 import ipaddress
 import pytest
 
