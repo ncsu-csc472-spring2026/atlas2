@@ -1,21 +1,129 @@
-#!/usr/bin/env python3
 """
 atlas2.py
 
-Prompt for PSU name and root domain, run theHarvester, pipe output to harvesthelper,
-and save harvesthelper's output to harvesthelper.txt
+Runs theHarvester and the ATLAS Web Crawler over the supplied PSU domain
+
+Caution should be used when using this script manually, you might create duplicate
+files or runZero sites if the input PSU ID or Names are mistyped.
+
+Outputs to JSON by default, CSV by request (-c flag), and the runZero org
+specified in .env if enabled (-r flag)
+
+Use the -h flag for more help on arguments and other flags
 """
 
 import re  # Regex parser
 import shutil
 import subprocess
 import sys
+import os
 import argparse  # For command-line argument parsing
 import json  # For JSON object export
 import datetime as dt  # For timestamps (see strftime())
 import socket  # For DNS resolution
-import atlas2_csv as csv # For CSV Exporting
+from . import atlas2_csv as csv # For CSV Exporting
+from . import atlas2_runzero as rz # For exporting to runZero
 import ipaddress
+
+DOMAIN_RE = re.compile(
+    r"^(?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?\.)+[A-Za-z]{2,}$"
+)  # Regex object for matching domains that take up the entire line (or from user input)
+DOMAIN_START_RE = re.compile(
+    r"^(?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?\.)+[A-Za-z]{2,}"
+)  # Regex object for matching domains at the start of lines (or strings)
+IP_RE = re.compile(
+    r"^(?:(?:25[0-5]|(?:2[0-4]|1\d|[1-9]|)\d)\.?\b){4}$", re.M
+)  # Regex object for matching IPs at the start of lines
+
+parser = argparse.ArgumentParser()
+parser.add_argument(
+    "psu_id", help="ID of the PSU to scan (ex. 410 OR 31B)", nargs="?", default=""
+)
+parser.add_argument(
+    "psu_name",
+    help="Name of the PSU (ex. 'Pitt County Schools')",
+    nargs="?",
+    default="",
+)
+parser.add_argument(
+    "psu_domain",
+    help="Root domain of the given PSU (ex. pitt.k12.nc.us OR daretolearn.org)",
+    nargs="?",
+    default="",
+)
+parser.add_argument(
+    "-a",
+    "--allowlist",
+    default="allowlist.txt",
+    help="Allowlist file for crawler (default: allowlist.txt)",
+)
+parser.add_argument(
+    "-b",
+    "--blocklist",
+    default="blocklist.txt",
+    help="Blocklist file for crawler (default: blocklist.txt)",
+)
+parser.add_argument(
+    "-n",
+    "--concurrency",
+    type=int,
+    default=50,
+    help="Max concurrent sockets (default: 50)",
+)
+parser.add_argument(
+    "-d", 
+    "--depth", 
+    type=int, 
+    default=3, 
+    help="Max crawl depth (default: 3)"
+)
+parser.add_argument(
+    "-m",
+    "--maxpages",
+    type=int,
+    default=1000,
+    help="Max pages to crawl (default: 1000)",
+)
+parser.add_argument(
+    "-o", "--output", default=None, help="Output file for crawler results"
+)
+parser.add_argument('block', help='Allows for input of comma seperated IP blocks (ex. 152.26.20.64/26,152.26.23.0/25)', nargs='?', default='')
+parser.add_argument('-i', '--interactive', help='Interactive mode: program will prompt you to input PSU ID and Domain', action='store_true')
+parser.add_argument('-c', '--csv', help='Enables .csv exporting to "{psu_id}_{psu_name}.csv"', action='store_true')
+parser.add_argument('-f', '--folder', help='Path to directory where all output files will be stored', nargs='?', default='')
+parser.add_argument('-r', '--runzero', help='Enables export to runZero (Must have API Token filled in .env file to work!)', action='store_true')
+
+args = parser.parse_args()
+
+
+# Asset Class (object)
+class Asset:
+    def __init__(self, ip):
+        self.ip = ip  # Asset IP address
+        self.in_block = False  # Whether or not the IP is in the MCNC block for the supplied PSU
+        self.ping_status = "DOWN"  # Is this asset responding to pings? Default = DOWN
+        self.asn = ""  # ASN this IP belongs to
+        self.domains = []  # List of domains associated with this IP
+        self.source = ""  # What tool was used to find this Asset
+        self.timestamp = ""  # Timestamp of when this Asset was last found
+        self.comments = ""  # Additional comments about this Asset
+
+    # Equality check between two Asset object, if the IPs are the same, the Assets are the same (usable with ==)
+    def __eq__(self, other):
+        if isinstance(other, Asset):
+            return self.ip == other.ip
+        return NotImplemented
+
+
+# PSU Class (Object), instantiated after all assets for the particular PSU are found
+class PSU:
+    def __init__(self, name, id, root_domain, asset_count, blocks, assets):
+        self.name = name                        # PSU name
+        self.id = id                            # PSU ID
+        self.root_domain = root_domain          # PSU root domain
+        self.asset_count = asset_count          # Number of assets found for this PSU
+        self.blocks = blocks                    # List of IP blocks to check
+        self.assets = assets                    # List of Asset objects found for this PSU
 
 
 """
@@ -57,101 +165,6 @@ def crawl2ip(input_file):
     return sorted(ip_to_domains.keys()), ip_to_domains
 
 
-DOMAIN_RE = re.compile(
-    r"^(?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?\.)+[A-Za-z]{2,}$"
-)  # Regex object for matching domains that take up the entire line (or from user input)
-DOMAIN_START_RE = re.compile(
-    r"^(?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?\.)+[A-Za-z]{2,}"
-)  # Regex object for matching domains at the start of lines (or strings)
-IP_RE = re.compile(
-    r"^(?:(?:25[0-5]|(?:2[0-4]|1\d|[1-9]|)\d)\.?\b){4}$", re.M
-)  # Regex object for matching IPs at the start of lines
-
-parser = argparse.ArgumentParser()
-parser.add_argument(
-    "psu_id", help="ID of the PSU to scan (ex. 410 OR 31B)", nargs="?", default=""
-)
-parser.add_argument(
-    "psu_name",
-    help="Optional name of the PSU (ex. 'Pitt County Schools')",
-    nargs="?",
-    default="",
-)
-parser.add_argument(
-    "psu_domain",
-    help="Root domain of the given PSU (ex. pitt.k12.nc.us OR daretolearn.org)",
-    nargs="?",
-    default="",
-)
-parser.add_argument(
-    "-a",
-    "--allowlist",
-    default="allowlist.txt",
-    help="Allowlist file for crawler (default: allowlist.txt)",
-)
-parser.add_argument(
-    "-b",
-    "--blocklist",
-    default="blocklist.txt",
-    help="Blocklist file for crawler (default: blocklist.txt)",
-)
-# TODO: fix later
-parser.add_argument(
-    "-n",
-    "--concurrency",
-    type=int,
-    default=50,
-    help="Max concurrent sockets (default: 50)",
-)
-parser.add_argument(
-    "-d", "--depth", type=int, default=3, help="Max crawl depth (default: 3)"
-)
-parser.add_argument(
-    "-m",
-    "--maxpages",
-    type=int,
-    default=1000,
-    help="Max pages to crawl (default: 1000)",
-)
-parser.add_argument(
-    "-o", "--output", default=None, help="Output file for crawler results"
-)
-parser.add_argument('block', help='Allows for input of comma seperated IP blocks (ex.152.26.20.64/26,152.26.23.0/25)', nargs='?', default='')
-parser.add_argument('-i', '--interactive', help='Interactive mode: program will prompt you to input PSU ID and Domain', action='store_true')
-parser.add_argument('-c', '--csv', help='Enables .csv exporting to "{psu_id}_{psu_name}.csv"', action='store_true')
-
-args = parser.parse_args()
-
-
-# Asset Class (object)
-class Asset:
-    def __init__(self, ip):
-        self.ip = ip  # Asset IP address
-        self.in_block = False  # Whether or not the IP is in the MCNC block for the supplied PSU (TODO: Implement check for this)
-        self.ping_status = "DOWN"  # Is this asset responding to pings? Default = DOWN
-        self.asn = ""  # ASN this IP belongs to
-        self.domains = []  # List of domains associated with this IP
-        self.source = ""  # What tool was used to find this Asset
-        self.timestamp = ""  # Timestamp of when this Asset was last found
-        self.comments = ""  # Additional comments about this Asset
-
-    # Equality check between two Asset object, if the IPs are the same, the Assets are the same (usable with ==)
-    def __eq__(self, other):
-        if isinstance(other, Asset):
-            return self.ip == other.ip
-        return NotImplemented
-
-
-# PSU Class (Object), instantiated after all assets for the particular PSU are found
-class PSU:
-    def __init__(self, name, id, root_domain, asset_count, blocks, assets):
-        self.name = name                        # PSU name
-        self.id = id                            # PSU ID
-        self.root_domain = root_domain          # PSU root domain
-        self.asset_count = asset_count          # Number of assets found for this PSU
-        self.blocks = blocks                    # List of IP blocks to check
-        self.assets = assets                    # List of Asset objects found for this PSU
-
 """
 Returns true if the passed string is a domain, otherwise false
 """
@@ -171,8 +184,8 @@ def is_valid_blocks(blocks_str: str) -> list:
             block = block.strip()
             try:
                 blocks.append(ipaddress.ip_network(block, strict=False))
-            except ValueError:
-                print(f"[!] Invalid block: {block}", file = sys.stderr)
+            except ValueError as e:
+                print(f"[!] Invalid block: {block}: {e}", file = sys.stderr)
                 sys.exit(1)
 
     return blocks
@@ -351,7 +364,6 @@ def run_crawler_and_resolve(
     output=None,
 ):
     import tempfile
-    import os
 
     if not output:
         tmp = tempfile.NamedTemporaryFile(mode="w+", suffix=".txt", delete=False)
@@ -389,8 +401,8 @@ def run_crawler_and_resolve(
 Export PSU object as json to file with standard naming convention:
 {PSU_ID}_{PSU_NAME}.json
 """
-def export_json_psu(psu: PSU):
-    with open(f"{'_'.join([psu.id, psu.name])}.json", "w", encoding="UTF-8") as json_file:
+def export_json_psu(psu: PSU, folder: str):
+    with open(f"{folder}{'_'.join([psu.id, psu.name])}.json", "w", encoding="UTF-8") as json_file:
         json_file.write(json.dumps(psu, default=lambda o: o.__dict__, indent=4))
 
     return
@@ -414,20 +426,28 @@ def main():
     # Holds list of blocks input by the user
     blocks = []
 
+    # Directory where all output files will be stored (filled by args.folder, current dir by default)
+    folder = "./"
+
     # If interactive mode, ask user for inputs
     if args.interactive:
         psu, name, root_domain, blocks = get_inputs()
-    else: # otherwise fill in variable from args
+    else: # otherwise fill in variable from command-line args
         psu = args.psu_id.strip()
         name = args.psu_name.strip().replace(' ', '_')
         root_domain = args.psu_domain.strip()
         if args.block:
             blocks = is_valid_blocks(args.block)
+            print(f"[+] Loaded {len(blocks)} IP blocks: {blocks}", file=sys.stdout)
 
         # Exit on error (non-interactive mode and empty arguments)
         if not psu or not root_domain or not name or not is_valid_domain(root_domain):
             print("[!] Invalid PSU ID or Domain or Name", file=sys.stderr)
             sys.exit(1)
+
+    # Add trailing '/' if output folder argument does not end with one
+    if args.folder:
+        folder = os.path.abspath(args.folder) + "/"
 
     # Find all necessary utilities in PATH
     harvester_bin = find_tool("theHarvester")
@@ -515,7 +535,7 @@ def main():
 
     # Print finished statement
     print(
-            f"\n[+] Finished Parsing: {len(all_assets)} assets total ({len(all_assets) - len(crawler_ips)} harvester, {len(crawler_ips)} crawler)"
+            f"\n[+] Finished Parsing: {len(all_assets)} assets total ({len([asset for asset in all_assets if asset.source == 'theHarvester'])} harvester, {len([asset for asset in all_assets if asset.source == 'atlas_crawler'])} crawler)"
             )
 
     # Create a list of string representations of all IP blocks in 'blocks'
@@ -524,12 +544,26 @@ def main():
     # Create PSU object
     psu_object = PSU(name, psu, root_domain, len(all_assets), block_string_list, all_assets)
 
+    # Always export PSU object as json
+    export_json_psu(psu_object, folder)
+
     # CSV export functions if the flag is set
     if args.csv:
-        csv.export_psu_as_csv(psu_object)
+        csv.export_psu_as_csv(psu_object, folder)
 
-    # Always export PSU object as json
-    export_json_psu(psu_object)
+    # runZero exporting using ATLAS2 runzero module, only adds assets to sites if they are not in their assigned IP blocks
+    if args.runzero:
+        try:
+            rz.add_assets_to_site(
+                '_'.join([psu_object.id, psu_object.name]), # PSU name
+                [asset.ip for asset in psu_object.assets if not asset.in_block], # IP of each asset in PSU object
+                [str(asset.domains) for asset in psu_object.assets if not asset.in_block], # Domains of each asset in PSU object
+                create_if_missing=True # Create sites in runZero if they don't exist
+                )
+        except ValueError as e: # Error from runZero module, print it to stderr
+            print(e, file=sys.stderr)
+
+    return
 
 if __name__ == "__main__":
     main()
