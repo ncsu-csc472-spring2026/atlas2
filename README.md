@@ -1,4 +1,5 @@
-# ATLAS2: Asset Tracking and Lifecycle Analysis System 2
+#	source $(BIN_DIR)/activate && sudo $(BIN_DIR)/pip install .
+ ATLAS2: Asset Tracking and Lifecycle Analysis System 2
 
 ## Installation
 ### **NOTE: This installation only works on Debian-based (or Kali) Linux distros that use `apt` as their package manager!**
@@ -44,6 +45,11 @@
 - Otherwise, for a normal system-wide CLI tool install without using the Systemd service, simply run:
     ```bash
     make
+    ```
+
+- To run PyTest unit tests after building, run:
+    ```bash
+    make test
     ```
 
 - To remove all installed files and directories, run:
