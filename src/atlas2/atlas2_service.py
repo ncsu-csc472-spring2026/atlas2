@@ -4,7 +4,7 @@ import threading # For concurrent running instances of atlas2.py
 import csv # To read master PSU list
 import subprocess # To run atlas2 with command-line arguments
 import ast # To get literal List objects from CSV
-import argparse # For argument parsing and usage 
+import argparse # For argument parsing and usage
 import tarfile # For zipping output
 from datetime import datetime # For date/time filenames for .tar files
 
@@ -136,7 +136,7 @@ def main():
     if args.tarfile:
 
         dt = datetime.now().strftime("%m-%d-%Y-%H%M%S")
-        tarfilename = f"atlas2_{dt}.tar"
+        tarfilename = f"atlas2_{dt}.tar.gz"
         tarfilepath = os.path.join(args.output, tarfilename)
 
         print(f"[*] Writing Tarfile to {tarfilepath}")
