@@ -1,0 +1,19 @@
+********************************************
+*      _  _____ _        _    ____ ____    *
+*     / \|_   _| |      / \  / ___|___ \   *
+*    / _ \ | | | |     / _ \ \___ \ __) |  *
+*   / ___ \| | | |___ / ___ \ ___) / __/   *
+*  /_/   \_\_| |_____/_/   \_\____/_____|  *
+*                                          *
+*            Asset Tracking and            *
+*        Lifecycle Analysis System 2       *
+*                                          *
+* Version: [VERSION!]                      *
+*                                          *
+* Created by the NCSU CSC472 ATLAS2 Team:  *
+*                                          *
+* Perry Ellis, Camden Kells, Jack Lawlor,  *
+* Wesley Matthews, Dhruvi Shah             *
+*                                          *
+********************************************
+

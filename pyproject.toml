@@ -1,0 +1,37 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "atlas2"
+version = "0.1.0"
+description = "Asset Tracking and Lifecycle Analysis System 2"
+readme = "README.md"
+requires-python = ">=3.8"
+license = { text = "" }
+authors = [
+    { name = "Perry Ellis", email = "perrydellis37@gmail.com" },
+    { name = "Camden Kells", email = "cmkells@ncsu.edu" },
+    { name = "Jack Lawlor", email = "jclawlor@ncsu.edu" },
+    { name = "Wesley Matthews", email = "wcmatth3@ncsu.edu" },
+    { name = "Dhruvi Shah", email = "dbshah6@ncsu.edu" },
+]
+keywords = []
+classifiers = [
+    "Operating System :: POSIX :: Linux",
+]
+dependencies = [
+  "python-dotenv>=1.2.2",
+  "requests>=2.28.0",
+  "pytest>=9.0.3",
+]
+
+[project.scripts]
+atlas2 = "atlas2.atlas2:main"
+atlas2_service = "atlas2.atlas2_service:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+"atlas2" = [".env"]
